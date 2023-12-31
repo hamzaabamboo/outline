@@ -42,6 +42,7 @@ const Layout = React.forwardRef(function Layout_(
       <Helmet>
         <title>{title ? title : env.APP_NAME}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta property="og:site_name" content={title} />
       </Helmet>
 
       <SkipNavLink />

@@ -111,8 +111,8 @@ export default () =>
           ],
         },
         manifest: {
-          name: "Ham's Note",
-          short_name: "Personal Note App powered by Outline",
+          name: "Ham's Note Powered by Outline",
+          short_name: "Ham's Notes",
           theme_color: "#fff",
           background_color: "#fff",
           start_url: "/",

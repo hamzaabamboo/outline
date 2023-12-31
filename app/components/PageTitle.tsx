@@ -17,12 +17,15 @@ const originalShortcutHref = document
 const PageTitle = ({ title, favicon }: Props) => {
   const { auth } = useStores();
   const team = useTeamContext() ?? auth.team;
+  const pageTitle = team?.name
+    ? `${title} - ${team.name}`
+    : `${title} - ${env.APP_NAME}`;
 
   return (
     <Helmet>
-      <title>
-        {team?.name ? `${title} - ${team.name}` : `${title} - ${env.APP_NAME}`}
-      </title>
+      <title>{pageTitle}</title>
+      <meta property="og:title" content={pageTitle} />
+      <meta name="twitter:title" content={pageTitle} />
       <link
         rel="shortcut icon"
         type="image/png"
