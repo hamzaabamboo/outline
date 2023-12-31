@@ -1,10 +1,11 @@
 import { LocationDescriptor } from "history";
 import { observer } from "mobx-react";
 import * as React from "react";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { s, ellipsis } from "@shared/styles";
+import { ellipsis, s } from "@shared/styles";
 import Document from "~/models/Document";
 import Revision from "~/models/Revision";
 import DocumentBreadcrumb from "~/components/DocumentBreadcrumb";
@@ -177,45 +178,53 @@ const DocumentMeta: React.FC<Props> = ({
   };
 
   return (
-    <Container
-      align="center"
-      rtl={document.dir === "rtl"}
-      {...rest}
-      dir="ltr"
-      lang=""
-    >
-      {to ? (
-        <Link to={to} replace={replace}>
-          {content}
-        </Link>
-      ) : (
-        content
-      )}
-      {showCollection && collection && (
-        <span>
-          &nbsp;{t("in")}&nbsp;
-          <strong>
-            <DocumentBreadcrumb document={document} onlyText />
-          </strong>
-        </span>
-      )}
-      {showParentDocuments && nestedDocumentsCount > 0 && (
-        <span>
-          &nbsp;• {nestedDocumentsCount}{" "}
-          {t("nested document", {
-            count: nestedDocumentsCount,
-          })}
-        </span>
-      )}
-      &nbsp;{timeSinceNow()}
-      {canShowProgressBar && (
-        <>
-          &nbsp;•&nbsp;
-          <DocumentTasks document={document} />
-        </>
-      )}
-      {children}
-    </Container>
+    <>
+      <Helmet>
+        <meta property="og:description" content={document.getSummary()} />
+        <meta name="description" content={document.getSummary()} />
+        <meta name="twitter:description" content={document.getSummary()} />
+      </Helmet>
+
+      <Container
+        align="center"
+        rtl={document.dir === "rtl"}
+        {...rest}
+        dir="ltr"
+        lang=""
+      >
+        {to ? (
+          <Link to={to} replace={replace}>
+            {content}
+          </Link>
+        ) : (
+          content
+        )}
+        {showCollection && collection && (
+          <span>
+            &nbsp;{t("in")}&nbsp;
+            <strong>
+              <DocumentBreadcrumb document={document} onlyText />
+            </strong>
+          </span>
+        )}
+        {showParentDocuments && nestedDocumentsCount > 0 && (
+          <span>
+            &nbsp;• {nestedDocumentsCount}{" "}
+            {t("nested document", {
+              count: nestedDocumentsCount,
+            })}
+          </span>
+        )}
+        &nbsp;{timeSinceNow()}
+        {canShowProgressBar && (
+          <>
+            &nbsp;•&nbsp;
+            <DocumentTasks document={document} />
+          </>
+        )}
+        {children}
+      </Container>
+    </>
   );
 };
 
