@@ -1,8 +1,8 @@
 import * as React from "react";
 import styled from "styled-components";
 import { Primitive } from "utility-types";
-import { IntegrationService, IntegrationType } from "../../types";
 import type { IntegrationSettings } from "../../types";
+import { IntegrationService, IntegrationType } from "../../types";
 import { urlRegex } from "../../utils/urls";
 import Image from "../components/Img";
 import Berrycast from "./Berrycast";
@@ -14,6 +14,7 @@ import JSFiddle from "./JSFiddle";
 import Linkedin from "./Linkedin";
 import Spotify from "./Spotify";
 import Trello from "./Trello";
+import Twitter from "./Twitter";
 import Vimeo from "./Vimeo";
 import YouTube from "./YouTube";
 
@@ -570,6 +571,15 @@ const embeds: EmbedDescriptor[] = [
     ],
     icon: <Img src="/images/youtube.png" alt="YouTube" />,
     component: YouTube,
+  }),
+  new EmbedDescriptor({
+    title: "X",
+    keywords: "twitter x",
+    regexMatch: [
+      /^(?:https?:\/\/)?(?:www\.)?(?:(?:twitter)|(?:x))(?:\.com)\/(.*?)\/(?:status)\/(\d+)(?:[\&\?].*)?$/i,
+    ],
+    icon: <Img src="/images/twitter.png" alt="Twitter" />,
+    component: Twitter,
   }),
 ];
 
