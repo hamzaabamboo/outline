@@ -34,10 +34,13 @@
     "no-useless-escape": "off",
     "no-shadow": "off",
     "es/no-regexp-lookbehind-assertions": "error",
-    "react/self-closing-comp": ["error", {
-      "component": true,
-      "html": true
-    }],
+    "react/self-closing-comp": [
+      "error",
+      {
+        "component": true,
+        "html": true
+      }
+    ],
     "@typescript-eslint/no-shadow": [
       "warn",
       {
@@ -62,8 +65,15 @@
         "ignoreRestSiblings": true
       }
     ],
-    "padding-line-between-statements": ["error", { "blankLine": "always", "prev": "*", "next": "export" }],
-    "lines-between-class-members": ["error", "always", { "exceptAfterSingleLine": true }],
+    "padding-line-between-statements": [
+      "error",
+      { "blankLine": "always", "prev": "*", "next": "export" }
+    ],
+    "lines-between-class-members": [
+      "error",
+      "always",
+      { "exceptAfterSingleLine": true }
+    ],
     "lodash/import-scope": ["warn", "method"],
     "import/no-named-as-default": "off",
     "import/no-named-as-default-member": "off",
