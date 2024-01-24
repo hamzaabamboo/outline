@@ -9739,8 +9739,14 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 "@types/react-virtualized-auto-sizer@^1.0.2":
   version: 1.0.2
+=======
+"@types/react-virtualized-auto-sizer@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@types/react-virtualized-auto-sizer/-/react-virtualized-auto-sizer-1.0.4.tgz#42044ef75ac2d2667893a5943e54a9f037f985a3"
+>>>>>>> 9d50ed4b2 (chore(deps): bump react-virtualized-auto-sizer and @types/react-virtualized-auto-sizer (#6415))
   dependencies:
     "@types/react": "*"
   integrity: sha1-6rABeP1Lc9QPXV/5rSVxeWXLX1Q= sha512-UKIhAsnn1GknB0ewLXmwiGPVhU9m58gq56HcS1+G9L+TUtwgLMJoCREH0k303t3ZdDhNWt8TyxWE9iLYzWSnew==
@@ -31489,6 +31495,7 @@ react-virtual@^2.8.2:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 react-virtualized-auto-sizer@^1.0.20:
   version: 1.0.20
   integrity: sha1-2akHJTp8IhxS+lfcd1pu9AwYJkU= sha512-OdIyHwj4S4wyhbKHOKM1wLSj/UDXm839Z3Cvfg2a9j+He6yDa6i5p0qQvEiCnyQlGO/HyfSnigQwuxvYalaAXA==
@@ -31503,6 +31510,11 @@ react-virtualized-auto-sizer@^1.0.20:
   checksum: 9c0929a0363b3b3b10ad65ac57d7562a20966a9c38c28c10dfd296d0a6a3e678319dce2384c5177f43965c2b7f226f5766deffc4b7eaaab0ee7c2cfe0c7d6b48
   languageName: node
   linkType: hard
+=======
+react-virtualized-auto-sizer@^1.0.21:
+  version "1.0.21"
+  resolved "https://registry.yarnpkg.com/react-virtualized-auto-sizer/-/react-virtualized-auto-sizer-1.0.21.tgz#c840bbc80a691aee030d090785b98142102013c5"
+>>>>>>> 9d50ed4b2 (chore(deps): bump react-virtualized-auto-sizer and @types/react-virtualized-auto-sizer (#6415))
 
 react-waypoint@^10.3.0:
   version: 10.3.0
