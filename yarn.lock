@@ -21077,6 +21077,7 @@ has@^1.0.3:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 "has@npm:^1.0.3":
   version: 1.0.3
   resolution: "has@npm:1.0.3"
@@ -21110,6 +21111,9 @@ hasown@^2.0.0, hasown@^2.0.1, hasown@^2.0.2:
 
 hasown@^2.0.1, hasown@^2.0.2:
 >>>>>>> 9a6c9def3 (chore: Remove no-longer maintained Enzyme)
+=======
+hasown@^2.0.0, hasown@^2.0.1:
+>>>>>>> 96030b2fe (chore: Remove no-longer maintained Enzyme)
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/hasown/-/hasown-2.0.2.tgz#003eaf91be7adc372e84ec59dc37252cedb80003"
   integrity sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==
