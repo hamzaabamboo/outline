@@ -8019,6 +8019,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@testing-library/dom@^8.0.0":
+  version "8.20.1"
+  resolved "https://registry.yarnpkg.com/@testing-library/dom/-/dom-8.20.1.tgz#2e52a32e46fc88369eef7eef634ac2a192decd9f"
+  integrity sha512-/DiOQ5xBxgdYRC8LNk7U+RWat0S3qRLeIw3ZIkMQ9kkVlRmwD/Eg8k8CqIpD6GW7u20JIUOfMKbxtiLutpjQ4g==
+  dependencies:
+    "@babel/code-frame" "^7.10.4"
+    "@babel/runtime" "^7.12.5"
+    "@types/aria-query" "^5.0.1"
+    aria-query "5.1.3"
+    chalk "^4.1.0"
+    dom-accessibility-api "^0.5.9"
+    lz-string "^1.5.0"
+    pretty-format "^27.0.2"
+
+"@testing-library/react@^12.0.0":
+  version "12.1.5"
+  resolved "https://registry.yarnpkg.com/@testing-library/react/-/react-12.1.5.tgz#bb248f72f02a5ac9d949dea07279095fa577963b"
+  integrity sha512-OfTXCJUFgjd/digLUuPxa0+/3ZxsQmE7ub9kcbW/wi96Bh3o/p5vrETcBGfP17NWPGqeYYl5LTRpwyGoMC4ysg==
+  dependencies:
+    "@babel/runtime" "^7.12.5"
+    "@testing-library/dom" "^8.0.0"
+    "@types/react-dom" "<18.0.0"
+
 "@tippyjs/react@^4.2.6":
   version: 4.2.6
   dependencies:
@@ -8112,6 +8135,11 @@ __metadata:
   checksum: ad8b87e4ad64255db5f0a73bc2b4da9b146c38a3a8ab4d9306154334e0fc67ae64e76bfa298eebd1e71830591fb15987e5de7111bdb36a2221bdc379e3415fb0
   languageName: node
   linkType: hard
+
+"@types/aria-query@^5.0.1":
+  version "5.0.4"
+  resolved "https://registry.yarnpkg.com/@types/aria-query/-/aria-query-5.0.4.tgz#1a31c3d378850d2778dabb6374d036dcba4ba708"
+  integrity sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==
 
 "@types/async-lock@^1.1.3":
   version: 1.1.5
@@ -8278,6 +8306,7 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 "@types/cheerio@*":
   version: 0.22.30
   dependencies:
@@ -8285,6 +8314,8 @@ __metadata:
   integrity: sha1-bB3tcNINiQM38PUUS+LF6c4JNuY= sha512-t7ZVArWZlq3dFa9Yt33qFBQIK4CQd1Q3UJp0V+UhP6vgLWLM6Qug7vZuRSGXg45zXeB1Fm5X2vmBkEX58LV2Tw==
   resolved: "https://registry.yarnpkg.com/@types/cheerio/-/cheerio-0.22.30.tgz#6c1ded70d20d890337f0f5144be2c5e9ce0936e6"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 "@types/co-body@^6.1.0":
   version: 6.1.0
   dependencies:
@@ -8458,6 +8489,7 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 "@types/enzyme-adapter-react-16@^1.0.9":
   version: 1.0.9
   dependencies:
@@ -8481,6 +8513,8 @@ __metadata:
   integrity: sha1-hgEOfLVs8UUN05G4zDp4j2pvre8= sha512-RaO/TyyHZvXkpzinbMTZmd/S5biU4zxkvDsn22ujC29t9FMSzq8tnn8f2MxQ2P8GVhFRG5jTAL05DXKyTtpEQQ==
   resolved: "https://registry.yarnpkg.com/@types/enzyme/-/enzyme-3.10.18.tgz#86010e7cb56cf1450dd391b8cc3a788f6a6fadef"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 "@types/estree@0.0.39":
   version: 0.0.39
   integrity: sha1-4Xfmme4bjCLSMXTKqnQiZEOJUJ8= sha512-EYNwp3bU+98cpU4lAWYYL7Zz+2gryWH1qbdDTidVd6hkiR6weksdbMadyXKXNPEkQFhXM+hVO9ZygomHXp+AIw==
@@ -9637,12 +9671,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 "@types/react-dom@^17.0.11":
   version: 17.0.11
   dependencies:
     "@types/react": "*"
   integrity: sha1-4ercPF6GvbX3aE4AJ0riKOe8xGY= sha512-f96K3k+24RaLGVu/Y2Ng3e1EbZ8/cVJvypZWd7cy0ofCBaf2lcM46xNhycMZ2xGwbBjRql7hOlZ+e2WlJ5MH3Q==
   resolved: "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-17.0.11.tgz#e1eadc3c5e86bdb5f7684e00274ae228e7bcc466"
+=======
+"@types/react-dom@<18.0.0", "@types/react-dom@^17.0.11":
+  version "17.0.25"
+  resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-17.0.25.tgz#e0e5b3571e1069625b3a3da2b279379aa33a0cb5"
+  integrity sha512-urx7A7UxkZQmThYA4So0NelOVjx3V4rNFVJwp0WZlbIK5eM4rNJDiN3R/E9ix0MBh6kAEojk/9YL+Te6D9zHNA==
+  dependencies:
+    "@types/react" "^17"
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 "@types/react-dom@npm:<18.0.0, @types/react-dom@npm:^17.0.11":
   version: 17.0.25
@@ -9768,6 +9811,7 @@ __metadata:
   integrity: sha1-wgZFQU0UI2T75zWBjhweChRWluM= sha512-8Ls660bHR1AUA2kuRvVG9D/4XpRC6wjAaPT9dil7Ckc76eP9TKWZwwmgfq8Q1LANX3QNDnoU4Zp48A3w+zK69Q==
   resolved: "https://registry.yarnpkg.com/@types/react-window/-/react-window-1.8.8.tgz#c20645414d142364fbe735818e1c1e0a145696e3"
 
+<<<<<<< HEAD
 "@types/react-window@npm:^1.8.8":
   version: 1.8.8
   resolution: "@types/react-window@npm:1.8.8"
@@ -9788,6 +9832,12 @@ __metadata:
 
 "@types/react@^16":
   version: 16.14.40
+=======
+"@types/react@*", "@types/react@^17", "@types/react@^17.0.34":
+  version "17.0.75"
+  resolved "https://registry.yarnpkg.com/@types/react/-/react-17.0.75.tgz#cffbc76840a12fcadaf5a3cf14878bb06efcf73d"
+  integrity sha512-MSA+NzEzXnQKrqpO63CYqNstFjsESgvJAdAyyJ1n6ZQq/GLgf6nOfIKwk+Twuz0L1N6xPe+qz5xRCJrbhMaLsw==
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     "@types/prop-types": "*"
     "@types/scheduler": "*"
@@ -10758,6 +10808,7 @@ agent-base@6:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 airbnb-prop-types@^2.16.0:
   version: 2.16.0
   dependencies:
@@ -10773,6 +10824,8 @@ airbnb-prop-types@^2.16.0:
   integrity: sha1-uWJ0zvoauxT2I/gEFz7pfBOXHcI= sha512-7WHOFolP/6cS96PhKNrslCLMYAI8yB1Pp6u6XmxozQOiZbsI5ycglZr5cHhBFfuRcQQjzCMith5ZPZdYiJCxUg==
   resolved: "https://registry.yarnpkg.com/airbnb-prop-types/-/airbnb-prop-types-2.16.0.tgz#b96274cefa1abb14f623f804173ee97c13971dc2"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 ajv@^6.12.4:
   version: 6.12.6
   dependencies:
@@ -11078,6 +11131,13 @@ argparse@~1.0.9:
   integrity: sha1-vNZ5HqWuCXJeF+WtmIE0zUCz2RE= sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==
   resolved: "https://registry.yarnpkg.com/argparse/-/argparse-1.0.10.tgz#bcd6791ea5ae09725e17e5ad988134cd40b3d911"
 
+aria-query@5.1.3:
+  version "5.1.3"
+  resolved "https://registry.yarnpkg.com/aria-query/-/aria-query-5.1.3.tgz#19db27cd101152773631396f7a95a3b58c22c35e"
+  integrity sha512-R5iJ5lkuHybztUfuOAznmboyjWq8O6sqNqtK7CLOqdydi54VNbORp49mb14KbWgG1QD3JFO9hJdZ+y4KutfdOQ==
+  dependencies:
+    deep-equal "^2.0.5"
+
 aria-query@^5.1.3:
   version: 5.3.0
   dependencies:
@@ -11162,6 +11222,7 @@ array-uniq@1.0.2:
   integrity: sha1-X8w3OSB3VyPP1k1lxkvvU7+eum0= sha512-GVYjmpL05al4dNlKJm53mKE4w9OOLiuVHWorsIA3YVz+Hu0hcn6PtE3Ydl0EqU7v+7ABC4mjjWsnLUxbpno+CA==
   resolved: "https://registry.yarnpkg.com/array-uniq/-/array-uniq-1.0.2.tgz#5fcc373920775723cfd64d65c64bef53bf9eba6d"
 
+<<<<<<< HEAD
 array.prototype.filter@^1.0.0:
   version: 1.0.0
   dependencies:
@@ -11207,6 +11268,8 @@ array.prototype.find@^2.1.1:
   languageName: node
   linkType: hard
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 array.prototype.findlastindex@^1.2.2:
   version: 1.2.2
   dependencies:
@@ -11218,9 +11281,16 @@ array.prototype.findlastindex@^1.2.2:
   integrity: sha1-vCKa75j2vQUzorxh/5UgmHVSbJs= sha512-tb5thFFlUcp7NdNF6/MpDk/1r/4awWG1FIz3YqDf+/zJSTezBb+/5WViH41obXULHVpDzoiCLpJ/ZO9YbJMsdw==
   resolved: "https://registry.yarnpkg.com/array.prototype.findlastindex/-/array.prototype.findlastindex-1.2.2.tgz#bc229aef98f6bd0533a2bc61ff95209875526c9b"
 
+<<<<<<< HEAD
 "array.prototype.findlastindex@npm:^1.2.3":
   version: 1.2.3
   resolution: "array.prototype.findlastindex@npm:1.2.3"
+=======
+array.prototype.flat@^1.3.1:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/array.prototype.flat/-/array.prototype.flat-1.3.1.tgz#ffc6576a7ca3efc2f46a143b9d1dda9b4b3cf5e2"
+  integrity "sha1-/8ZXanyj78L0ahQ7nR3am0s89eI= sha512-roTU0KWIOmJ4DRLmwKd19Otg0/mT3qPNt0Qb3GWW8iObuZXxrjB/pzn0R3hqpRSWg4HCwqx+0vwOnWnvlOyeIA=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
     define-properties: ^1.2.0
@@ -12779,9 +12849,16 @@ cache-content-type@^1.0.0:
   integrity: sha1-A1zeKwjuISn0qDFeqPAKANuhRTw= sha512-IKufZ1o4Ut42YUrZSo8+qnMTrFuKkvyoLXUywKz9GJ5BrhOFGhLdkx9sG4KAnVvbY6kEcSFjLQul+DVmBm2bgA==
   resolved: "https://registry.yarnpkg.com/cache-content-type/-/cache-content-type-1.0.1.tgz#035cde2b08ee2129f4a8315ea8f00a00dba1453c"
 
+<<<<<<< HEAD
 "cache-content-type@npm:^1.0.0":
   version: 1.0.1
   resolution: "cache-content-type@npm:1.0.1"
+=======
+call-bind@^1.0.0, call-bind@^1.0.2, call-bind@^1.0.4, call-bind@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/call-bind/-/call-bind-1.0.5.tgz#6fa2b7845ce0ea49bf4d8b9ef64727a2c2e2e513"
+  integrity "sha1-b6K3hFzg6km/TYue9kcnosLi5RM= sha512-C3nQxfFZxFRVoJoGKKI8y3MOEo129NQ+FgQ08iye+Mk4zNZZGdjfs06bVTr+DBSlA66Q2VEcMki/cUCP4SercQ=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     mime-types: ^2.1.18
     ylru: ^1.2.0
@@ -13067,9 +13144,16 @@ cheerio-select@^2.1.0:
   integrity: sha1-TYZzKGuBJsoqjkJ0DV48SISuIbQ= sha512-9v9kG0LvzrlcungtnJtpGNxY+fzECQKhK4EGJX2vByejiMX84MFNQw4UxPJl3bFbTMw+Dfs37XaIkCwTZfLh4g==
   resolved: "https://registry.yarnpkg.com/cheerio-select/-/cheerio-select-2.1.0.tgz#4d8673286b8126ca2a8e42740d5e3c4884ae21b4"
 
+<<<<<<< HEAD
 "cheerio-select@npm:^2.1.0":
   version: 2.1.0
   resolution: "cheerio-select@npm:2.1.0"
+=======
+cheerio@^1.0.0-rc.2:
+  version "1.0.0-rc.12"
+  resolved "https://registry.yarnpkg.com/cheerio/-/cheerio-1.0.0-rc.12.tgz#788bf7466506b1c6bf5fae51d24a2c4d62e47683"
+  integrity "sha1-eIv3RmUGsca/X65R0kosTWLkdoM= sha512-VqR8m68vM46BNnuZ5NtnGBKIE/DfN0cRIzg9n40EIq9NOv90ayxLBXA8fXC5gquFRGJSTRqBq25Jt2ECLR431Q=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     boolbase: ^1.0.0
     css-select: ^5.1.0
@@ -15883,6 +15967,30 @@ dedent@^1.0.0:
   languageName: node
   linkType: hard
 
+deep-equal@^2.0.5:
+  version "2.2.3"
+  resolved "https://registry.yarnpkg.com/deep-equal/-/deep-equal-2.2.3.tgz#af89dafb23a396c7da3e862abc0be27cf51d56e1"
+  integrity sha512-ZIwpnevOurS8bpT4192sqAowWM76JDKSHYzMLty3BZGSswgq6pBaH3DhCSW5xVAZICZyKdOBPjwww5wfgT/6PA==
+  dependencies:
+    array-buffer-byte-length "^1.0.0"
+    call-bind "^1.0.5"
+    es-get-iterator "^1.1.3"
+    get-intrinsic "^1.2.2"
+    is-arguments "^1.1.1"
+    is-array-buffer "^3.0.2"
+    is-date-object "^1.0.5"
+    is-regex "^1.1.4"
+    is-shared-array-buffer "^1.0.2"
+    isarray "^2.0.5"
+    object-is "^1.1.5"
+    object-keys "^1.1.1"
+    object.assign "^4.1.4"
+    regexp.prototype.flags "^1.5.1"
+    side-channel "^1.0.4"
+    which-boxed-primitive "^1.0.2"
+    which-collection "^1.0.1"
+    which-typed-array "^1.1.13"
+
 deep-equal@~1.0.1:
   version: 1.0.1
   integrity: sha1-9dJgKStmDghO/0zbyfCK0yR0SLU= sha512-bHtC0iYvWhyaTzvV3CZgPeZQqCOBGyGsVV7v4eevpdkLHfiSrXUdBG+qAuSz4RI70sszvjQ1QSZ98An1yNwpSw==
@@ -16238,11 +16346,14 @@ dir-glob@^3.0.1:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 discontinuous-range@1.0.0:
   version: 1.0.0
   integrity: sha1-44Mx8IRLukm5qctxx3FYWqsbxlo= sha512-c68LpLbO+7kP/b1Hr1qs8/BJ09F5khZGTxqxZuhzxpmwJKOgRFHJWIb9/KmqnqHhLdO55aOxFH/EGBvUQbL/RQ==
   resolved: "https://registry.yarnpkg.com/discontinuous-range/-/discontinuous-range-1.0.0.tgz#e38331f0844bba49b9a9cb71c771585aab1bc65a"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 dnd-core@^16.0.1:
   version: 16.0.1
   dependencies:
@@ -16301,6 +16412,11 @@ doctrine@^3.0.0:
   checksum: 005eb283caef57fc1adec4d5df4dd49189b628f2f575af45decb210e04d634459e3f1ee64f18b41e2dcf200c844bc1d9279d80807e686a30d69a4756151ad248
   languageName: node
   linkType: hard
+
+dom-accessibility-api@^0.5.9:
+  version "0.5.16"
+  resolved "https://registry.yarnpkg.com/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz#5a7429e6066eb3664d911e33fb0e45de8eb08453"
+  integrity sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==
 
 dom-serializer@^2.0.0:
   version: 2.0.0
@@ -16979,6 +17095,7 @@ env-ci@7.3.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 enzyme-adapter-react-16@^1.15.7:
   version: 1.15.7
   dependencies:
@@ -17051,6 +17168,8 @@ enzyme@^3.11.0:
   integrity: sha1-cdaAxYD+k0n29axsd1vD5rennCg= sha512-Dw8/Gs4vRjxY6/6i9wU0V+utmQO9kvh9XLnz3LIudviOnVYDEe2ec+0k+NQoMamn1VrjKgCUOWj5jG/5M5M0Qw==
   resolved: "https://registry.yarnpkg.com/enzyme/-/enzyme-3.11.0.tgz#71d680c580fe9349f6f5ac6c775bc3e6b7a79c28"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 eol@^0.9.1:
   version: 0.9.1
   integrity: sha1-9wGRL1BAdL41xhF6XEreSc1Ues0= sha512-Ds/TEoZjwggRoz/Q2O7SE3i4Jm66mqTDfmdHdq/7DKVk3bro9Q8h6WdXKdPqFLMoqxrDK5SVRzHVPOS6uuGtrg==
@@ -17077,9 +17196,16 @@ error-ex@^1.3.1:
   integrity: sha1-tKxAZIEH/c3PriQvQovqihTU8b8= sha512-7dFHNmqeFSEt2ZBsCriorKnn3Z2pj+fd9kmI6QoWw4//DL+icEBfc0U7qJCisqrTsKTjw4fNFy2pW9OqStD84g==
   resolved: "https://registry.yarnpkg.com/error-ex/-/error-ex-1.3.2.tgz#b4ac40648107fdcdcfae242f428bea8a14d4f1bf"
 
+<<<<<<< HEAD
 "error-ex@npm:^1.3.1":
   version: 1.3.2
   resolution: "error-ex@npm:1.3.2"
+=======
+es-abstract@^1.19.0, es-abstract@^1.20.4, es-abstract@^1.21.2, es-abstract@^1.22.1:
+  version "1.22.1"
+  resolved "https://registry.yarnpkg.com/es-abstract/-/es-abstract-1.22.1.tgz#8b4e5fc5cefd7f1660f0f8e1a52900dfbc9d9ccc"
+  integrity "sha1-i05fxc79fxZg8PjhpSkA37ydnMw= sha512-ioRRcXMO6OFyRpyzV3kE1IIBd4WG5/kltnzdxSCqoP8CMGs/Li+M1uF5o7lOkZVFjDs+NLesthnF66Pg/0q0Lw=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     is-arrayish: ^0.2.1
   checksum: c1c2b8b65f9c91b0f9d75f0debaa7ec5b35c266c2cac5de412c1a6de86d4cbae04ae44e510378cb14d032d0645a36925d0186f8bb7367bcc629db256b743a001
@@ -17405,6 +17531,7 @@ es-abstract@^1.22.1:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 es-array-method-boxes-properly@^1.0.0:
   version: 1.0.0
   integrity: sha1-hz8+hEGN5O4Zxb51KZCy5EcY0J4= sha512-wd6JXUmyHmt8T5a2xreUwKcGPq6f1f+WwIJkijUqiGcJz1qqnZgP6XIK+QyIWU5lT7imeNxUll48bziG+TSYcA==
@@ -17449,6 +17576,22 @@ es-array-method-boxes-properly@^1.0.0:
   checksum: 8fa118da42667a01a7c7529f8a8cca514feeff243feec1ce0bb73baaa3514560bd09d2b3438873cf8a5aaec5d52da248131de153b28e2638a061b6e4df13267d
   languageName: node
   linkType: hard
+=======
+es-get-iterator@^1.1.3:
+  version "1.1.3"
+  resolved "https://registry.yarnpkg.com/es-get-iterator/-/es-get-iterator-1.1.3.tgz#3ef87523c5d464d41084b2c3c9c214f1199763d6"
+  integrity sha512-sPZmqHBe6JIiTfN5q2pEi//TwxmAFHwj/XEuYjTuse78i8KxaqMTTzxPoFKuzRpDpTJ+0NAbpfenkmH2rePtuw==
+  dependencies:
+    call-bind "^1.0.2"
+    get-intrinsic "^1.1.3"
+    has-symbols "^1.0.3"
+    is-arguments "^1.1.1"
+    is-map "^2.0.2"
+    is-set "^2.0.2"
+    is-string "^1.0.7"
+    isarray "^2.0.5"
+    stop-iteration-iterator "^1.0.0"
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 es-iterator-helpers@^1.0.12:
   version: 1.0.15
@@ -19836,9 +19979,16 @@ fsevents@^2.3.2:
   integrity: sha1-ysZAd4XQNnWipeGlMFxpezR9kNY= sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
   resolved: "https://registry.yarnpkg.com/fsevents/-/fsevents-2.3.3.tgz#cac6407785d03675a2a5e1a5305c697b347d90d6"
 
+<<<<<<< HEAD
 "fsevents@npm:^2.3.2, fsevents@npm:~2.3.2, fsevents@npm:~2.3.3":
   version: 2.3.3
   resolution: "fsevents@npm:2.3.3"
+=======
+function.prototype.name@^1.1.5:
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/function.prototype.name/-/function.prototype.name-1.1.5.tgz#cce0505fe1ffb80503e6f9e46cc64e46a12a9621"
+  integrity "sha1-zOBQX+H/uAUD5vnkbMZORqEqliE= sha512-uN7m/BzVKQnCUF/iW8jYea67v++2u7m5UgENbHRtdDVclOUP+FMPlCNdmk0h/ysGyo2tavMJEDqJAkJdRa1vMA=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     node-gyp: latest
   checksum: 11e6ea6fea15e42461fc55b4b0e4a0a3c654faa567f1877dbd353f39156f69def97a69936d1746619d656c4b93de2238bf731f6085a03a50cabf287c9d024317
@@ -19960,6 +20110,7 @@ get-caller-file@^2.0.5:
   integrity: sha1-T5RBKoLbMvNuOwuXQfipf+sDH34= sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==
   resolved: "https://registry.yarnpkg.com/get-caller-file/-/get-caller-file-2.0.5.tgz#4f94412a82db32f36e3b0b9741f8a97feb031f7e"
 
+<<<<<<< HEAD
 "get-caller-file@npm:^2.0.5":
   version: 2.0.5
   resolution: "get-caller-file@npm:2.0.5"
@@ -20029,6 +20180,17 @@ get-intrinsic@^1.2.1:
   checksum: 414e3cdf2c203d1b9d7d33111df746a4512a1aa622770b361dadddf8ed0b5aeb26c560f49ca077e24bfafb0acb55ca908d1f709216ccba33ffc548ec8a79a951
   languageName: node
   linkType: hard
+=======
+get-intrinsic@^1.0.2, get-intrinsic@^1.1.1, get-intrinsic@^1.1.3, get-intrinsic@^1.2.0, get-intrinsic@^1.2.1, get-intrinsic@^1.2.2:
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/get-intrinsic/-/get-intrinsic-1.2.2.tgz#281b7622971123e1ef4b3c90fd7539306da93f3b"
+  integrity sha512-0gSo4ml/0j98Y3lngkFEot/zhiCeWsbYIlZ+uZOVgzLyLaUw7wxUL+nCTP0XJvJg1AXulJRI3UJi8GsbDuxdGA==
+  dependencies:
+    function-bind "^1.1.2"
+    has-proto "^1.0.1"
+    has-symbols "^1.0.3"
+    hasown "^2.0.0"
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 get-nonce@^1.0.0:
   version: 1.0.1
@@ -20727,6 +20889,13 @@ has@^1.0.3:
   languageName: node
   linkType: hard
 
+hasown@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/hasown/-/hasown-2.0.0.tgz#f4c513d454a57b7c7e1650778de226b11700546c"
+  integrity sha512-vUptKVTpIJhcczKBbgnS+RtcuYMB8+oNzPK2/Hp3hanz8JmpATdmmgLgSaadVREkDm+e2giHwY3ZRkyjSIDDFA==
+  dependencies:
+    function-bind "^1.1.2"
+
 hast-util-parse-selector@^2.0.0:
   version: 2.2.5
   integrity: sha1-1Xwj9NoWrjxjs7bKRhZoMxNJnDo= sha512-7j6mrk/qqkSehsM92wQjdIgWM2/BW61u/53G6xmC8i1OmEdKLHbk419QKQUjz6LglWsfqoiHmyMRkP1BGjecNQ==
@@ -20940,6 +21109,7 @@ hoist-non-react-statics@^3.3.2:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 html-element-map@^1.2.0:
   version: 1.3.1
   dependencies:
@@ -20948,6 +21118,8 @@ html-element-map@^1.2.0:
   integrity: sha1-RLLLz6e+eqT/WXeeR+UQEuHHPAg= sha512-6XMlxrAFX4UEEGxctfFnmrFaaZFNf9i5fNuV5wZ3WWQ4FVaNP1aX1LkX9j2mfEx1NpjeE/rL3nmgEn23GdFmrg==
   resolved: "https://registry.yarnpkg.com/html-element-map/-/html-element-map-1.3.1.tgz#44b2cbcfa7be7aa4ff59779e47e51012e1c73c08"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 html-encoding-sniffer@^3.0.0:
   version: 3.0.0
   dependencies:
@@ -21753,6 +21925,7 @@ int64-buffer@^0.1.9:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 internal-slot@^1.0.5:
   version: 1.0.5
   dependencies:
@@ -21761,6 +21934,16 @@ internal-slot@^1.0.5:
     side-channel: ^1.0.4
   integrity: sha1-8qLuIfZo+GJ6RmfzCdwPT7ZnSYY= sha512-Y+R5hJrzs52QCG2laLn4udYVnxsfny9CpOhNhUvk/SSSVyF6T27FzRbF0sroPidSu3X8oEAkOn2K804mjpt6UQ==
   resolved: "https://registry.yarnpkg.com/internal-slot/-/internal-slot-1.0.5.tgz#f2a2ee21f668f8627a4667f309dc0f4fb6674986"
+=======
+internal-slot@^1.0.4, internal-slot@^1.0.5:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/internal-slot/-/internal-slot-1.0.6.tgz#37e756098c4911c5e912b8edbf71ed3aa116f930"
+  integrity sha512-Xj6dv+PsbtwyPpEflsejS+oIZxmMlV44zAhG479uYu89MsjcYOhCFnNyKrkJrihbsiasQyY0afoCl/9BLR65bg==
+  dependencies:
+    get-intrinsic "^1.2.2"
+    hasown "^2.0.0"
+    side-channel "^1.0.4"
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 "internal-slot@npm:^1.0.4, internal-slot@npm:^1.0.5, internal-slot@npm:^1.0.7":
   version: 1.0.7
@@ -21937,8 +22120,15 @@ is-alphanumerical@^1.0.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 is-arguments@^1.0.4:
   version: 1.1.1
+=======
+is-arguments@^1.0.4, is-arguments@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/is-arguments/-/is-arguments-1.1.1.tgz#15b3f88fda01f2a97fec84ca761a560f123efa9b"
+  integrity "sha1-FbP4j9oB8ql/7ITKdhpWDxI++ps= sha512-8Q7EARjzEnKpt/PCD7e1cgUS0a6X8u5tdSiMqXhojOdoV9TsMsiO+9VLC5vAmO8N7/GmXn7yjR8qnA6bVAEzfA=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
     has-tostringtag: ^1.0.0
@@ -22056,6 +22246,7 @@ is-blob@^2.1.0:
   integrity: sha1-42zYLJBlPx4bkw8RuvnGQhagU4U= sha512-SZ/fTft5eUhQM6oF/ZaASFDEdbFVe89Imltn9uZr03wdKMcWNVYSMjQPFtg05QuNkt5l5c135ElvXEQG0rk4tw==
   resolved: "https://registry.yarnpkg.com/is-blob/-/is-blob-2.1.0.tgz#e36cd82c90653f1e1b930f11baf9c64216a05385"
 
+<<<<<<< HEAD
 "is-blob@npm:^2.1.0":
   version: 2.1.0
   resolution: "is-blob@npm:2.1.0"
@@ -22065,6 +22256,12 @@ is-blob@^2.1.0:
 
 is-boolean-object@^1.0.1:
   version: 1.1.1
+=======
+is-boolean-object@^1.1.0:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/is-boolean-object/-/is-boolean-object-1.1.1.tgz#3c0878f035cb821228d350d2e1e36719716a3de8"
+  integrity "sha1-PAh48DXLghIo01DS4eNnGXFqPeg= sha512-bXdQWkECBUIAcCkeH1unwJLIpZYaa5VvuygSyS/c2lf719mTKZDU5UdDRlpd01UjADgmW8RfqaP+mRaVPdr/Ng=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
   integrity: sha1-PAh48DXLghIo01DS4eNnGXFqPeg= sha512-bXdQWkECBUIAcCkeH1unwJLIpZYaa5VvuygSyS/c2lf719mTKZDU5UdDRlpd01UjADgmW8RfqaP+mRaVPdr/Ng==
@@ -22091,12 +22288,19 @@ is-buffer@^1.1.5:
   integrity: sha1-76ouqdqg16suoTqXsritUf776L4= sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==
   resolved: "https://registry.yarnpkg.com/is-buffer/-/is-buffer-1.1.6.tgz#efaa2ea9daa0d7ab2ea13a97b2b8ad51fefbe8be"
 
+<<<<<<< HEAD
 "is-buffer@npm:^1.1.5":
   version: 1.1.6
   resolution: "is-buffer@npm:1.1.6"
   checksum: 4a186d995d8bbf9153b4bd9ff9fd04ae75068fe695d29025d25e592d9488911eeece84eefbd8fa41b8ddcc0711058a71d4c466dcf6f1f6e1d83830052d8ca707
   languageName: node
   linkType: hard
+=======
+is-callable@^1.1.3, is-callable@^1.1.4, is-callable@^1.2.7:
+  version "1.2.7"
+  resolved "https://registry.yarnpkg.com/is-callable/-/is-callable-1.2.7.tgz#3bc2a85ea742d9e36205dcacdd72ca1fdc51b055"
+  integrity "sha1-O8KoXqdC2eNiBdys3XLKH9xRsFU= sha512-1BC0BVFhS/p0qtw6enp8e+8OD0UrK0oFLztSjNzhcKA3WDuJxxAPXzPuPtKkjEY9UUoEWlX/8fgKeu2S8i9JTA=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 is-callable@^1.1.3:
   version: 1.2.7
@@ -22373,6 +22577,7 @@ is-hexadecimal@^1.0.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 is-map@^2.0.1:
   version: 2.0.2
   integrity: sha1-AJItuMm/c+gbejNYJ7wqQ/K5ESc= sha512-cOZFQQozTha1f4MxLFzlgKYPTyj26picdZTx82hbc/Xf4K/tZOOXSCkMvU4pKioRXGDLJRn0GM7Upe7kR721yg==
@@ -22384,6 +22589,12 @@ is-map@^2.0.1:
   checksum: ace3d0ecd667bbdefdb1852de601268f67f2db725624b1958f279316e13fecb8fa7df91fd60f690d7417b4ec180712f5a7ee967008e27c65cfd475cc84337728
   languageName: node
   linkType: hard
+=======
+is-map@^2.0.1, is-map@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/is-map/-/is-map-2.0.2.tgz#00922db8c9bf73e81b7a335827bc2a43f2b91127"
+  integrity "sha1-AJItuMm/c+gbejNYJ7wqQ/K5ESc= sha512-cOZFQQozTha1f4MxLFzlgKYPTyj26picdZTx82hbc/Xf4K/tZOOXSCkMvU4pKioRXGDLJRn0GM7Upe7kR721yg=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 is-module@^1.0.0:
   version: 1.0.0
@@ -22527,6 +22738,7 @@ is-promise@^2.2.2:
   integrity: sha1-OauVnMv5p3TPB597QMeib3YxNfE= sha512-+lP4/6lKUBfQjZ2pdxThZvLUAafmZb8OAxFb8XXtiQmS35INgr85hdOGoEs124ez1FCnZJt6jau/T+alh58QFQ==
   resolved: "https://registry.yarnpkg.com/is-promise/-/is-promise-2.2.2.tgz#39ab959ccbf9a774cf079f7b40c7a26f763135f1"
 
+<<<<<<< HEAD
 "is-promise@npm:^2.2.2":
   version: 2.2.2
   resolution: "is-promise@npm:2.2.2"
@@ -22536,6 +22748,12 @@ is-promise@^2.2.2:
 
 is-regex@^1.0.5:
   version: 1.1.4
+=======
+is-regex@^1.1.4:
+  version "1.1.4"
+  resolved "https://registry.yarnpkg.com/is-regex/-/is-regex-1.1.4.tgz#eef5663cd59fa4c0ae339505323df6854bb15958"
+  integrity "sha1-7vVmPNWfpMCuM5UFMj32hUuxWVg= sha512-kvRdxDsxZjhzUX07ZnLydzS1TU/TJlTUHHY4YLL87e37oUA49DfkLqgy+VjFocowy29cKvcSiu+kIv728jTTVg=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
     has-tostringtag: ^1.0.0
@@ -22596,6 +22814,7 @@ is-relative@^1.0.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 is-set@^2.0.1:
   version: 2.0.2
   integrity: sha1-kHVfpMJWLcHF1AJHYNYRm5TKGOw= sha512-+2cnTEZeY5z/iXGbLhPrOAaK/Mau5k5eXq9j14CpRTftq0pAJu2MwVRSZhyZWBzx3o6X795Lz6Bpb6R0GKf37g==
@@ -22607,6 +22826,12 @@ is-set@^2.0.1:
   checksum: b64343faf45e9387b97a6fd32be632ee7b269bd8183701f3b3f5b71a7cf00d04450ed8669d0bd08753e08b968beda96fca73a10fd0ff56a32603f64deba55a57
   languageName: node
   linkType: hard
+=======
+is-set@^2.0.1, is-set@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/is-set/-/is-set-2.0.2.tgz#90755fa4c2562dc1c5d4024760d6119b94ca18ec"
+  integrity "sha1-kHVfpMJWLcHF1AJHYNYRm5TKGOw= sha512-+2cnTEZeY5z/iXGbLhPrOAaK/Mau5k5eXq9j14CpRTftq0pAJu2MwVRSZhyZWBzx3o6X795Lz6Bpb6R0GKf37g=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 is-shared-array-buffer@^1.0.2:
   version: 1.0.2
@@ -22671,6 +22896,7 @@ is-string@^1.0.7:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 is-subset@^0.1.1:
   version: 0.1.1
   integrity: sha1-ilkRfZMt4d4A8kX83TnOQ/HpOaY= sha512-6Ybun0IkarhmEqxXCNw/C0bna6Zb/TkfUX9UbwJtK6ObwAVCxmAP308WWTHviM/zAqXk05cdhYsUsZeGQh99iw==
@@ -22678,6 +22904,12 @@ is-subset@^0.1.1:
 
 is-symbol@^1.0.2:
   version: 1.0.4
+=======
+is-symbol@^1.0.2, is-symbol@^1.0.3:
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/is-symbol/-/is-symbol-1.0.4.tgz#a6dac93b635b063ca6872236de88910a57af139c"
+  integrity "sha1-ptrJO2NbBjymhyI23oiRClevE5w= sha512-C/CPBqKWnvdcxqIARxyOh4v1UUEOCHpgDa0WYgpKDFMszcrPcffg5uhwSgPCLD2WWxmq6isisz87tzT01tuGhg=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     has-symbols: ^1.0.2
   integrity: sha1-ptrJO2NbBjymhyI23oiRClevE5w= sha512-C/CPBqKWnvdcxqIARxyOh4v1UUEOCHpgDa0WYgpKDFMszcrPcffg5uhwSgPCLD2WWxmq6isisz87tzT01tuGhg==
@@ -25707,6 +25939,7 @@ lodash.defaults@^4.2.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 lodash.escape@^4.0.1:
   version: 4.0.1
   integrity: sha1-yQRGkMIeBClL6qUXcS/e0fqI3pg= sha512-nXEOnb/jK9g0DYMr1/Xvq6l5xMD7GDG55+GSYIYmS0G4tBk/hURD4JR9WCavs04t33WmJx9kCyp9vJ+mr4BOUw==
@@ -25724,6 +25957,8 @@ lodash.flattendeep@^4.4.0:
   languageName: node
   linkType: hard
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 lodash.isarguments@^3.1.0:
   version: 3.1.0
   integrity: sha1-L1c9hcaiQon/AGY7SRwdM4/zRYo= sha512-chi4NHZlZqZD18a0imDHnZPrDeBbTtVN7GXMwuGdRH9qotxAjYs3aVLKc7zNOG9eddR5Ksd8rvFEBc9SsggPpg==
@@ -25743,6 +25978,7 @@ lodash.isarguments@^3.1.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 lodash.isequal@^4.5.0:
   version: 4.5.0
   integrity: sha1-QVxEePK8wwEgwizhDtMib30+GOA= sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==
@@ -25776,6 +26012,8 @@ lodash.isequal@^4.5.0:
   languageName: node
   linkType: hard
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 lodash.kebabcase@^4.1.1:
   version: 4.1.1
   integrity: sha1-hImxyw0p/4gZXM7KRI/21swpXDY= sha512-N8XRTIMMqqDgSy4VLKPnJ/+hpGZN+PHQiJnSenYqPaVV/NCqEogTnAdZLQiGKhxX+JCs8waWq2t1XHWKOmlY8g==
@@ -26125,6 +26363,7 @@ luxon@^3.0.1:
   integrity: sha1-FPGvIJGIrWEhJXjqfj1RjRjO5F8= sha512-QrwPArQCNLAKGO/C+ZIilgIuDnEnKx5QYODdDtbFaxzsbZcc/a7WFq7MhsVYgRlwawLtvOUESTlfJ+hc/USqPg==
   resolved: "https://registry.yarnpkg.com/luxon/-/luxon-3.2.1.tgz#14f1af209188ad61212578ea7e3d518d18cee45f"
 
+<<<<<<< HEAD
 "luxon@npm:^3.0.1":
   version: 3.2.1
   resolution: "luxon@npm:3.2.1"
@@ -26143,6 +26382,17 @@ luxon@^3.0.1:
 
 magic-string@^0.25.0:
   version: 0.25.9
+=======
+lz-string@^1.5.0:
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/lz-string/-/lz-string-1.5.0.tgz#c1ab50f77887b712621201ba9fd4e3a6ed099941"
+  integrity sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==
+
+magic-string@^0.25.0, magic-string@^0.25.7:
+  version "0.25.9"
+  resolved "https://registry.yarnpkg.com/magic-string/-/magic-string-0.25.9.tgz#de7f9faf91ef8a1c91d02c2e5314c8277dbcdd1c"
+  integrity "sha1-3n+fr5HvihyR0CwuUxTIJ3283Rw= sha512-RmF0AsMzgt25qzqqLc1+MbHmhdx0ojF2Fvs4XnOqz2ZOBXzzkEwc/dJQZCYHAn7v1jbVOjAZfK8msRn4BxO4VQ=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     sourcemap-codec: ^1.4.8
   integrity: sha1-3n+fr5HvihyR0CwuUxTIJ3283Rw= sha512-RmF0AsMzgt25qzqqLc1+MbHmhdx0ojF2Fvs4XnOqz2ZOBXzzkEwc/dJQZCYHAn7v1jbVOjAZfK8msRn4BxO4VQ==
@@ -27087,6 +27337,7 @@ moment@^2.29.4:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 moo@^0.5.0:
   version: 0.5.1
   integrity: sha1-eq5/OEubCfYgtqv29067zRtl28Q= sha512-I1mnb5xn4fO80BH9BLcF0yLypy2UKl+Cb01Fu0hJRkJjlCRtxZMWkTdAtDd5ZqCOxtCkhmRwyI57vWT+1iZ67w==
@@ -27108,6 +27359,12 @@ ms@^2.1.1:
   checksum: 673cdb2c3133eb050c745908d8ce632ed2c02d85640e2edb3ace856a2266a813b30c613569bf3354fdf4ea7d1a1494add3bfa95e2713baa27d0c2c71fc44f58f
   languageName: node
   linkType: hard
+=======
+ms@2.1.2, ms@^2.1.1:
+  version "2.1.2"
+  resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
+  integrity "sha1-0J0fNXtEP0kzgqjrPM0YOHKuYAk= sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 msgpack-lite@^0.1.26:
   version: 0.1.26
@@ -27255,6 +27512,7 @@ natural-sort@^1.0.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 nearley@^2.7.10:
   version: 2.20.1
   dependencies:
@@ -27265,6 +27523,8 @@ nearley@^2.7.10:
   integrity: sha1-JGzTPv8NAS+vGX/2d016x4rN1HQ= sha512-+Mc8UaAebFzgV+KpI5n7DasuuQCHA89dmwm7JXw3TV43ukfNQ9DnBH3Mdb2g/I4Fdxc26pwimBWvjIw0UAILSQ==
   resolved: "https://registry.yarnpkg.com/nearley/-/nearley-2.20.1.tgz#246cd33eff0d012faf197ff6774d7ac78acdd474"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 negotiator@0.6.2:
   version: 0.6.2
   integrity: sha1-/qz3zPUlp3rpY0Q2pkiD/+yjRvs= sha512-hZXc7K2e+PgeI1eDBe/10Ard4ekbfrrqG8Ep+8Jmf4JID2bNg7NvCPOZN+kfF574pFQI7mum2AUqDidoKqcTOw==
@@ -27728,6 +27988,7 @@ oauth@0.9.x:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 object-assign@^4:
   version: 4.1.1
   integrity: sha1-IQmtx5ZYh8/AXLvUQsrIv7s2CGM= sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==
@@ -27779,6 +28040,17 @@ object-inspect@^1.9.0:
 
 object-is@^1.0.2:
   version: 1.1.5
+=======
+object-inspect@^1.12.3, object-inspect@^1.9.0:
+  version "1.12.3"
+  resolved "https://registry.yarnpkg.com/object-inspect/-/object-inspect-1.12.3.tgz#ba62dffd67ee256c8c086dfae69e016cd1f198b9"
+  integrity "sha1-umLf/WfuJWyMCG365p4BbNHxmLk= sha512-geUvdk7c+eizMNUDkRpW1wJwgfOiOeHbxBR/hLXK1aT6zmVSO0jsQcs7fj6MGw89jC/cjGfLcNOrtMYtGqm81g=="
+
+object-is@^1.1.5:
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/object-is/-/object-is-1.1.5.tgz#b9deeaa5fc7f1846a0faecdceec138e5778f53ac"
+  integrity "sha1-ud7qpfx/GEag+uzc7sE45XePU6w= sha512-3cyDsyHgtmi7I7DfSSI2LDp6SK2lwvtbg0p0R1e0RvTqF5ceGx+K2dfSjm1bKDMVCFEDAQvy+o8c6a7VujOddw=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
     define-properties: ^1.1.3
@@ -27816,6 +28088,7 @@ object-keys@^1.1.1:
   integrity: sha1-HEfyct8nfzsdrwYWd9nILiMixg4= sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==
   resolved: "https://registry.yarnpkg.com/object-keys/-/object-keys-1.1.1.tgz#1c47f272df277f3b1daf061677d9c82e2322c60e"
 
+<<<<<<< HEAD
 "object-keys@npm:^1.1.1":
   version: 1.1.1
   resolution: "object-keys@npm:1.1.1"
@@ -27825,6 +28098,22 @@ object-keys@^1.1.1:
 
 object.assign@^4.0.4:
   version: 4.1.4
+=======
+object.assign@^4.0.4, object.assign@^4.1.4:
+  version "4.1.4"
+  resolved "https://registry.yarnpkg.com/object.assign/-/object.assign-4.1.4.tgz#9673c7c7c351ab8c4d0b516f4343ebf4dfb7799f"
+  integrity "sha1-lnPHx8NRq4xNC1FvQ0Pr9N+3eZ8= sha512-1mxKf0e58bvyjSCtKYY4sRe9itRk3PJpquJOjeIkz885CczcI4IvJJDLPS72oowuSh+pBxUFROpX+TU++hxhZQ=="
+  dependencies:
+    call-bind "^1.0.2"
+    define-properties "^1.1.4"
+    has-symbols "^1.0.3"
+    object-keys "^1.1.1"
+
+object.entries@^1.1.6:
+  version "1.1.7"
+  resolved "https://registry.yarnpkg.com/object.entries/-/object.entries-1.1.7.tgz#2b47760e2a2e3a752f39dd874655c61a7f03c131"
+  integrity "sha1-K0d2DiouOnUvOd2HRlXGGn8DwTE= sha512-jCBs/0plmPsOnrKAfFQXRG2NFjlhZgjjcBLSmTnEhU8U6vVTsVe8ANeQJCHTl3gSsI4J+0emOoCgoKlmQPMgmA=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
     define-properties: ^1.1.4
@@ -27833,8 +28122,15 @@ object.assign@^4.0.4:
   integrity: sha1-lnPHx8NRq4xNC1FvQ0Pr9N+3eZ8= sha512-1mxKf0e58bvyjSCtKYY4sRe9itRk3PJpquJOjeIkz885CczcI4IvJJDLPS72oowuSh+pBxUFROpX+TU++hxhZQ==
   resolved: "https://registry.yarnpkg.com/object.assign/-/object.assign-4.1.4.tgz#9673c7c7c351ab8c4d0b516f4343ebf4dfb7799f"
 
+<<<<<<< HEAD
 object.assign@^4.1.0:
   version: 4.1.4
+=======
+object.fromentries@^2.0.6:
+  version "2.0.6"
+  resolved "https://registry.yarnpkg.com/object.fromentries/-/object.fromentries-2.0.6.tgz#cdb04da08c539cffa912dcd368b886e0904bfa73"
+  integrity "sha1-zbBNoIxTnP+pEtzTaLiG4JBL+nM= sha512-VciD13dswC4j1Xt5394WR4MzmAQmlgN72phd/riNp9vtD7tp4QQWJ0R4wvclXcafgcYK8veHRed2W6XeGBvcfg=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     call-bind: ^1.0.2
     define-properties: ^1.1.4
@@ -27963,9 +28259,16 @@ object.hasown@^1.1.2:
   integrity: sha1-al8ol7tNNmi455Nk+YzPlxvaVa4= sha512-fFI4VcYpRHvSLXxP7yiZOMAd331cPfd2p7PFDVbgUsYOfCT3tICVqXWngbjr4m49OvsBwUBQ6O2uQoJvy3RexA==
   resolved: "https://registry.yarnpkg.com/object.hasown/-/object.hasown-1.1.3.tgz#6a5f2897bb4d3668b8e79364f98ccf971bda55ae"
 
+<<<<<<< HEAD
 "object.hasown@npm:^1.1.3":
   version: 1.1.3
   resolution: "object.hasown@npm:1.1.3"
+=======
+object.values@^1.1.6:
+  version "1.1.7"
+  resolved "https://registry.yarnpkg.com/object.values/-/object.values-1.1.7.tgz#617ed13272e7e1071b43973aa1655d9291b8442a"
+  integrity "sha1-YX7RMnLn4QcbQ5c6oWVdkpG4RCo= sha512-aU6xnDFYT3x17e/f0IiiwlGPTy2jzMySGfUB4fq6z7CV8l85CWHDk5ErhyhpfDHhrOMwGFhSQkhMGHaIotA6Ng=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     define-properties: ^1.2.0
     es-abstract: ^1.22.1
@@ -29893,6 +30196,7 @@ pretty-bytes@^6.1.1:
   integrity: sha1-OM1rtG9Hr79mfCAs/HVL/9IBajs= sha512-mQUvGU6aUFQ+rNvTIAcZuWGRT9a6f6Yrg9bHs4ImKF+HZCEK+plBvnAZYSIQztknZF2qnzNtr6F8s0+IuptdlQ==
   resolved: "https://registry.yarnpkg.com/pretty-bytes/-/pretty-bytes-6.1.1.tgz#38cd6bb46f47afbf667c202cfc754bffd2016a3b"
 
+<<<<<<< HEAD
 "pretty-bytes@npm:^5.3.0":
   version: 5.6.0
   resolution: "pretty-bytes@npm:5.6.0"
@@ -29909,6 +30213,21 @@ pretty-bytes@^6.1.1:
 
 pretty-format@^29.0.0:
   version: 29.7.0
+=======
+pretty-format@^27.0.2:
+  version "27.5.1"
+  resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-27.5.1.tgz#2181879fdea51a7a5851fb39d920faa63f01d88e"
+  integrity sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==
+  dependencies:
+    ansi-regex "^5.0.1"
+    ansi-styles "^5.0.0"
+    react-is "^17.0.1"
+
+pretty-format@^29.0.0, pretty-format@^29.7.0:
+  version "29.7.0"
+  resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-29.7.0.tgz#ca42c758310f365bfa71a0bda0a807160b776812"
+  integrity "sha1-ykLHWDEPNlv6caC9oKgHFgt3aBI= sha512-Pdlw/oPxN+aXdmM9R00JVC9WVFoCLTKJvDVLgmJ+qAffBMxsV85l/Lu7sNx4zSzPyoL2euImuEwHhOXdEgNFZQ=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     "@jest/schemas": ^29.6.3
     ansi-styles: ^5.0.0
@@ -30055,6 +30374,7 @@ prompts@^2.0.1:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 prop-types-exact@^1.2.0:
   version: 1.2.0
   dependencies:
@@ -30066,6 +30386,12 @@ prop-types-exact@^1.2.0:
 
 prop-types@^15.0.0:
   version: 15.8.1
+=======
+prop-types@^15.0.0, prop-types@^15.5.10, prop-types@^15.5.8, prop-types@^15.6.2, prop-types@^15.7.2, prop-types@^15.8.1:
+  version "15.8.1"
+  resolved "https://registry.yarnpkg.com/prop-types/-/prop-types-15.8.1.tgz#67d87bf1a694f48435cf332c24af10214a3140b5"
+  integrity "sha1-Z9h78aaU9IQ1zzMsJK8QIUoxQLU= sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     loose-envify: ^1.4.0
     object-assign: ^4.1.1
@@ -30870,6 +31196,7 @@ raf@^3.4.1:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 railroad-diagrams@^1.0.0:
   version: 1.0.0
   integrity: sha1-635iZ1SN3t+4mcG5Dlc3RVnN234= sha512-cz93DjNeLY0idrCNOH6PviZGRN9GJhsdm9hpn1YCS879fj4W+x5IFJhhkRZcwVgMmFF7R82UA/7Oh+R8lLZg6A==
@@ -30883,6 +31210,8 @@ randexp@0.4.6:
   integrity: sha1-6YatXl4x2uE93W97MBmqfIf2DKM= sha512-80WNmd9DA0tmZrw9qQa62GPPWfuXJknrmVmLcxvq4uZBdYqb1wYoKTmnlGUchvVWe0XiLupYkBoXVOxz3C8DYQ==
   resolved: "https://registry.yarnpkg.com/randexp/-/randexp-0.4.6.tgz#e986ad5e5e31dae13ddd6f7b3019aa7c87f60ca3"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 randombytes@2.0.3:
   version: 2.0.3
   integrity: sha1-Z0yZdgkBw8QRJ3GjHlIdw0nMCew= sha512-lDVjxQQFoCG1jcrP06LNo2lbWp4QTShEXnhActFBwYuHprllQV6VUpwreApsYqCgD+N1mHoqJ/BI/4eV4R2GYg==
@@ -31170,6 +31499,7 @@ react-i18next@^12.3.1:
   integrity: sha1-MBNKQaKnHGHcacY4NQSSmu0cmec= sha512-5v8E2XjZDFzK7K87eSwC7AJcAkcLt5xYZ4+yTPDAW1i7C93oOY1dnr4BaQM7un4Hm+GmghuiPvevWwlca5PwDA==
   resolved: "https://registry.yarnpkg.com/react-i18next/-/react-i18next-12.3.1.tgz#30134a41a2a71c61dc69c6383504929aed1c99e7"
 
+<<<<<<< HEAD
 "react-i18next@npm:^12.3.1":
   version: 12.3.1
   resolution: "react-i18next@npm:12.3.1"
@@ -31238,6 +31568,22 @@ react-is@^18.0.0:
   checksum: e72d0ba81b5922759e4aff17e0252bd29988f9642ed817f56b25a3e217e13eea8a7f2322af99a06edb779da12d5d636e9fda473d620df9a3da0df2a74141d53e
   languageName: node
   linkType: hard
+=======
+react-is@^16.13.1, react-is@^16.6.0, react-is@^16.7.0:
+  version "16.13.1"
+  resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
+  integrity "sha1-eJcppNw23imZ3BVt1sHZwYzqVqQ= sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ=="
+
+react-is@^17.0.1:
+  version "17.0.2"
+  resolved "https://registry.yarnpkg.com/react-is/-/react-is-17.0.2.tgz#e691d4a8e9c789365655539ab372762b0efb54f0"
+  integrity sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==
+
+"react-is@^17.0.1 || ^18.0.0", react-is@^18.0.0:
+  version "18.2.0"
+  resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.2.0.tgz#199431eeaaa2e09f86427efbb4f1473edb47609b"
+  integrity "sha1-GZQx7qqi4J+GQn77tPFHPttHYJs= sha512-xWGDIW6x921xtzPkhiULtthJHoJvBbF3q26fzloPCK0hsvxtPVelvftw3zjbHWSkR2km9Z+4uxbDDK/6Zw9B8w=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 react-merge-refs@^2.0.2:
   version: 2.0.2
@@ -31442,6 +31788,7 @@ react-table@^7.8.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 react-test-renderer@^16.0.0-0:
   version: 16.14.0
   dependencies:
@@ -31452,6 +31799,8 @@ react-test-renderer@^16.0.0-0:
   integrity: sha1-6YNgCHNI4mDFbU/iMV6XBIDCKK4= sha512-L8yPjqPE5CZO6rKsKXRO/rVPiaCOy0tQQJbC+UjPNlobl5mad59lvPjwFsQHTvL03caVDIVr9x9/OSgDe6I5Eg==
   resolved: "https://registry.yarnpkg.com/react-test-renderer/-/react-test-renderer-16.14.0.tgz#e98360087348e260c56d4fe2315e970480c228ae"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 react-tweet@^3.2.0:
   version: 3.2.0
   dependencies:
@@ -32002,11 +32351,14 @@ reflect.getprototypeof@^1.0.4:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 reflect.ownkeys@^0.2.0:
   version: 0.2.0
   integrity: sha1-dJrO7H8/34tj+SegSAnpDFwLNGA= sha512-qOLsBKHCpSOFKK1NUOCGC5VyeufB6lEsFe92AL2bhIJsacZS1qdoOZSbPk3MYKuT2cFlRDnulKXuuElIrMjGUg==
   resolved: "https://registry.yarnpkg.com/reflect.ownkeys/-/reflect.ownkeys-0.2.0.tgz#749aceec7f3fdf8b63f927a04809e90c5c0b3460"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 refractor@^3.6.0:
   version: 3.6.0
   dependencies:
@@ -32095,6 +32447,7 @@ regenerator-transform@^0.15.2:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 regexp.prototype.flags@^1.5.0:
   version: 1.5.0
   dependencies:
@@ -32115,6 +32468,16 @@ regexp.prototype.flags@^1.5.0:
   checksum: d7f333667d5c564e2d7a97c56c3075d64c722c9bb51b2b4df6822b2e8096d623a5e63088fb4c83df919b6951ef8113841de8b47de7224872fa6838bc5d8a7d64
   languageName: node
   linkType: hard
+=======
+regexp.prototype.flags@^1.5.0, regexp.prototype.flags@^1.5.1:
+  version "1.5.1"
+  resolved "https://registry.yarnpkg.com/regexp.prototype.flags/-/regexp.prototype.flags-1.5.1.tgz#90ce989138db209f81492edd734183ce99f9677e"
+  integrity sha512-sy6TXMN+hnP/wMy+ISxg3krXx7BAtWVO4UouuCN/ziM9UEne0euamVNafDfvC83bRNr95y0V5iijeDQFUNpvrg==
+  dependencies:
+    call-bind "^1.0.2"
+    define-properties "^1.2.0"
+    set-function-name "^2.0.0"
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 
 regexpp@^3.0.0:
   version: 3.2.0
@@ -32573,11 +32936,14 @@ restore-cursor@^4.0.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 ret@~0.1.10:
   version: 0.1.15
   integrity: sha1-uKSCXVvbH8P29Twrwz+BOIaBx7w= sha512-TTlYpa+OL+vMMNG24xSlQGEJ3B/RzEfUlLct7b5G/ytav+wPrplCpVMFuwzXbkecJrb6IYo1iFb0S9v37754mg==
   resolved: "https://registry.yarnpkg.com/ret/-/ret-0.1.15.tgz#b8a4825d5bdb1fc3f6f53c2bc33f81388681c7bc"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 retry-as-promised@^7.0.4:
   version: 7.0.4
   integrity: sha1-nfc62u6gjLKUi500mQVJ3BPYAKI= sha512-XgmCoxKWkDofwH8WddD0w85ZfqYz+ZHlr5yo+3YUCfycWawU56T5ckWXsScsj5B8tqUcIG67DxXByo3VUgiAdA==
@@ -32926,6 +33292,7 @@ rrweb-cssom@^0.6.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 rst-selector-parser@^2.2.3:
   version: 2.2.3
   dependencies:
@@ -32934,6 +33301,8 @@ rst-selector-parser@^2.2.3:
   integrity: sha1-gbIw6i/MYGbInjRy3nlChdmwPZE= sha512-nDG1rZeP6oFTLN6yNDV/uiAvs1+FS/KlrEwh7+y7dpuApDBy6bI2HTBcc0/V8lv9OTqfyD34eF7au2pm8aBbhA==
   resolved: "https://registry.yarnpkg.com/rst-selector-parser/-/rst-selector-parser-2.2.3.tgz#81b230ea2fcc6066c89e3472de794285d9b03d91"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 rsvp@^4.8.2:
   version: 4.8.5
   integrity: sha1-yPFVMR0Wf2jyHhaN9x7FsIMRNzQ= sha512-nfMOlASu9OnRJo1mbEk2cz0D56a1MBNrJ7orjRZQG10XDyuvwksKbuXNp6qa+kbn839HwjwhBzhFmdsaEAfauA==
@@ -33207,6 +33576,7 @@ saxes@^6.0.0:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 scheduler@^0.19.1:
   version: 0.19.1
   dependencies:
@@ -33215,6 +33585,8 @@ scheduler@^0.19.1:
   integrity: sha1-Tz4u0sGn1laB9MhU+oxaHMtA8ZY= sha512-n/zwRWRYSUj0/3g/otKDRPMh6qv2SYMWNq85IEa8iZyAv8od9zDYpGSnpBEjNgcMNq6Scbu5KfIPxNF72R/2EA==
   resolved: "https://registry.yarnpkg.com/scheduler/-/scheduler-0.19.1.tgz#4f3e2ed2c1a7d65681f4c854fa8c5a1ccb40f196"
 
+=======
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
 scheduler@^0.20.2:
   version: 0.20.2
   dependencies:
@@ -33256,9 +33628,26 @@ selderee@^0.11.0:
   integrity: sha1-avDHmD4HOtPjV4f/4gzv2drw7Io= sha512-5TF+l7p4+OsnP8BCCvSyZiSPc4x4//p5uPwK8TCnVPJYRmU2aYKMpOXvw8zM5a5JvuuCGN1jmsMwuU2W02ukfA==
   resolved: "https://registry.yarnpkg.com/selderee/-/selderee-0.11.0.tgz#6af0c7983e073ad3e35787ffe20cefd9daf0ec8a"
 
+<<<<<<< HEAD
 "selderee@npm:^0.11.0":
   version: 0.11.0
   resolution: "selderee@npm:0.11.0"
+=======
+semver@^5.6.0, semver@^5.7.1:
+  version "5.7.1"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-5.7.1.tgz#a954f931aeba508d307bbf069eff0c01c96116f7"
+  integrity "sha1-qVT5Ma66UI0we78Gnv8MAclhFvc= sha512-sauaDf/PZdVgrLTNYHRtpXa1iRiKcaebiKQ1BJdpQlWH2lCvexQdX55snPFyK7QzpudqbCI0qXFfOasHdyNDGQ=="
+
+semver@^6.0.0, semver@^6.1.0, semver@^6.1.1, semver@^6.1.2, semver@^6.3.0, semver@^6.3.1:
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-6.3.1.tgz#556d2ef8689146e46dcea4bfdd095f3434dffcb4"
+  integrity "sha1-VW0u+GiRRuRtzqS/3QlfNDTf/LQ= sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="
+
+semver@^7.3.8, semver@^7.5.0, semver@^7.5.2, semver@^7.5.3, semver@^7.5.4:
+  version "7.5.4"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-7.5.4.tgz#483986ec4ed38e1c6c48c34894a9182dbff68a6e"
+  integrity "sha1-SDmG7E7TjhxsSMNIlKkYLb/2im4= sha512-1bCSESV6Pv+i21Hvpxp3Dx+pSD8lIPt8uVjRrxAUt/nbswYc+tK6Y2btiULjd4+fnq15PX+nqQDC7Oft7WkwcA=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     parseley: ^0.12.0
   checksum: af8a68c1f4cde858152943b6fc9f2b7164c8fb1a1c9f01b44350dffd1f79783930d77a0ae33548a036816d17c8130eeb9d15f1db65c9262ca368ad3a0d750f66
@@ -34402,6 +34791,13 @@ statuses@^1.5.0:
   languageName: node
   linkType: hard
 
+stop-iteration-iterator@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/stop-iteration-iterator/-/stop-iteration-iterator-1.0.0.tgz#6a60be0b4ee757d1ed5254858ec66b10c49285e4"
+  integrity sha512-iCGQj+0l0HOdZ2AEeBADlsRC+vsnDsZsbdSiH1yNSjcfKM7fdpCMfqAL/dwF5BLiw/XhRft/Wax6zQbhq2BcjQ==
+  dependencies:
+    internal-slot "^1.0.4"
+
 stoppable@^1.1.0:
   version: 1.1.0
   integrity: sha1-MtpWjoPqSIsI5NfqLDvMnXUBXVs= sha512-KXDYZ9dszj6bzvnEMRYvxgeTHU74QBFL54XKtP3nyMuJ81CFYtABZ3bAzL2EdFUaEwJOBOgENyFj3R7oTzDyyw==
@@ -34523,8 +34919,15 @@ string-width@^4.1.0:
   integrity: sha1-JpxxF9J7Ba0uU2gwqOyJXvnG0BA= sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
   resolved: "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
 
+<<<<<<< HEAD
 string-width@^4.2.0:
   version: 4.2.3
+=======
+string.prototype.trim@^1.2.7:
+  version "1.2.7"
+  resolved "https://registry.yarnpkg.com/string.prototype.trim/-/string.prototype.trim-1.2.7.tgz#a68352740859f6893f14ce3ef1bb3037f7a90533"
+  integrity "sha1-poNSdAhZ9ok/FM4+8bswN/epBTM= sha512-p6TmeT1T3411M8Cgg9wBTMRtY2q9+PNy9EV1i2lIXUN/btt763oIfxwN3RR8VU6wHX8j/1CFy0L+YuThm6bgOg=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     emoji-regex: ^8.0.0
     is-fullwidth-code-point: ^3.0.0
@@ -37591,9 +37994,16 @@ which-collection@^1.0.1:
   integrity: sha1-cOq3Hru9Ku+vMvkXCC/GLNy3CQY= sha512-W8xeTUwaln8i3K/cY1nGXzdnVZlidBcagyNFtBdD5kxnb4TvGKR7FfSIS3mYpwWS1QUCutfKz8IY8RjftB0+1A==
   resolved: "https://registry.yarnpkg.com/which-collection/-/which-collection-1.0.1.tgz#70eab71ebbbd2aefaf32f917082fc62cdcb70906"
 
+<<<<<<< HEAD
 "which-collection@npm:^1.0.1":
   version: 1.0.1
   resolution: "which-collection@npm:1.0.1"
+=======
+which-typed-array@^1.1.10, which-typed-array@^1.1.13, which-typed-array@^1.1.2, which-typed-array@^1.1.9:
+  version "1.1.13"
+  resolved "https://registry.yarnpkg.com/which-typed-array/-/which-typed-array-1.1.13.tgz#870cd5be06ddb616f504e7b039c4c24898184d36"
+  integrity "sha1-hwzVvgbdthb1BOewOcTCSJgYTTY= sha512-P5Nra0qjSncduVPEAr7xhoF5guty49ArDTwzJ/yNuPIbZppyRxFQsRCWrocxIY+CnMVG+qfbU2FmDKyvSGClow=="
+>>>>>>> 2ddf12417 (chore: Remove no-longer maintained Enzyme)
   dependencies:
     is-map: ^2.0.1
     is-set: ^2.0.1
