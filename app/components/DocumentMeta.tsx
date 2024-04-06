@@ -180,9 +180,15 @@ const DocumentMeta: React.FC<Props> = ({
   return (
     <>
       <Helmet>
-        <meta property="og:description" content={document.getSummary()} />
-        <meta name="description" content={document.getSummary()} />
-        <meta name="twitter:description" content={document.getSummary()} />
+        <meta
+          property="og:description"
+          content={document.text.substring(100)}
+        />
+        <meta name="description" content={document.text.substring(100)} />
+        <meta
+          name="twitter:description"
+          content={document.text.substring(100)}
+        />
       </Helmet>
 
       <Container
