@@ -10,7 +10,7 @@ import { Portal } from "~/components/Portal";
 import useComponentSize from "~/hooks/useComponentSize";
 import useEventListener from "~/hooks/useEventListener";
 import useMobile from "~/hooks/useMobile";
-import useWindowSize from "~/hooks/useWindowSize";
+// import useWindowSize from "~/hooks/useWindowSize";
 import Logger from "~/utils/Logger";
 import { useEditor } from "./EditorContext";
 
@@ -211,7 +211,7 @@ const FloatingToolbar = React.forwardRef(function FloatingToolbar_(
   });
 
   const isMobile = useMobile();
-  const { height } = useWindowSize();
+  // const { height } = useWindowSize();
 
   if (isMobile) {
     if (!props.children) {
@@ -219,12 +219,12 @@ const FloatingToolbar = React.forwardRef(function FloatingToolbar_(
     }
 
     if (props.active) {
-      const rect = document.body.getBoundingClientRect();
+      // const rect = document.body.getBoundingClientRect();
       return (
         <ReactPortal>
           <MobileWrapper
             style={{
-              bottom: `calc(100% - ${height - rect.y}px)`,
+              bottom: `0`,
             }}
           >
             {props.children}
@@ -293,15 +293,6 @@ const MobileWrapper = styled.div`
   border-top: 1px solid ${s("divider")};
   box-sizing: border-box;
   z-index: ${depths.editorToolbar};
-
-  &:after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 100px;
-    background-color: ${s("menuBackground")};
-  }
 `;
 
 const Wrapper = styled.div<WrapperProps>`

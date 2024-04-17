@@ -31,7 +31,7 @@
     "vite:dev": "VITE_CJS_IGNORE_WARNING=true vite",
     "vite:build": "VITE_CJS_IGNORE_WARNING=true vite build",
     "vite:preview": "VITE_CJS_IGNORE_WARNING=true vite preview",
-    "dockerize": "docker build -f Dockerfile.merged -t registry.ham-san.net/outline .",
+    "dockerize": "docker build --platform linux/amd64 -f Dockerfile.merged -t registry.ham-san.net/outline .",
     "docker-push": "docker push registry.ham-san.net/outline"
   },
   "funding": {
