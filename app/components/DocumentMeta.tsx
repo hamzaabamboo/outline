@@ -112,7 +112,16 @@ const DocumentMeta: React.FC<Props> = ({
       </span>
     );
   } else if (createdAt === updatedAt) {
-    content = (
+    content = document.sourceMetadata ? (
+      <span>
+        {document.sourceMetadata.createdByName
+          ? t("{{ userName }} created", {
+              userName: document.sourceMetadata.createdByName,
+            })
+          : t("Imported")}{" "}
+        <Time dateTime={createdAt} addSuffix />
+      </span>
+    ) : (
       <span>
         {lastUpdatedByCurrentUser
           ? t("You created")
@@ -190,7 +199,6 @@ const DocumentMeta: React.FC<Props> = ({
           content={document.text.substring(100)}
         />
       </Helmet>
-
       <Container
         align="center"
         rtl={document.dir === "rtl"}

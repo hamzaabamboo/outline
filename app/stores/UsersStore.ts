@@ -148,6 +148,18 @@ export default class UsersStore extends Store<User> {
     return queriedUsers(users, query);
   };
 
+  notInDocument = (documentId: string, query = "") => {
+    const document = this.rootStore.documents.get(documentId);
+    const teamMembers = this.activeOrInvited;
+    const documentMembers = document?.members ?? [];
+    const users = differenceWith(
+      teamMembers,
+      documentMembers,
+      (teamMember, documentMember) => teamMember.id === documentMember.id
+    );
+    return queriedUsers(users, query);
+  };
+
   notInCollection = (collectionId: string, query = "") => {
     const memberships = filter(
       this.rootStore.memberships.orderedData,
