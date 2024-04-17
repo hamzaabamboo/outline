@@ -230,7 +230,7 @@ export default class Image extends SimpleImage {
     (event: React.KeyboardEvent<HTMLParagraphElement>) => {
       // Pressing Enter in the caption field should move the cursor/selection
       // below the image and create a new paragraph.
-      if (event.key === "Enter") {
+      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
         event.preventDefault();
 
         const { view } = this.editor;

@@ -107,7 +107,7 @@ const DocumentTitle = React.forwardRef(function _DocumentTitle(
       if (event.nativeEvent.isComposing) {
         return;
       }
-      if (event.key === "Enter") {
+      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
         event.preventDefault();
 
         if (isModKey(event)) {

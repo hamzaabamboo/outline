@@ -276,7 +276,7 @@ function SuggestionsMenu<T extends MenuItem>(props: Props<T>) {
       return;
     }
 
-    if (event.key === "Enter") {
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
       event.preventDefault();
       event.stopPropagation();
 
@@ -465,7 +465,7 @@ function SuggestionsMenu<T extends MenuItem>(props: Props<T>) {
         return;
       }
 
-      if (event.key === "Enter") {
+      if (event.key === "Enter" && !event.isComposing) {
         event.preventDefault();
 
         const item = filtered[selectedIndex];

@@ -20,6 +20,7 @@ import {
   MathIcon,
   DoneIcon,
   EmbedIcon,
+  LinkIcon,
 } from "outline-icons";
 import * as React from "react";
 import styled from "styled-components";
@@ -93,6 +94,13 @@ export default function blockMenuItems(dictionary: Dictionary): MenuItem[] {
       title: dictionary.image,
       icon: <ImageIcon />,
       keywords: "picture photo",
+    },
+    {
+      name: "link",
+      title: dictionary.link,
+      icon: <LinkIcon />,
+      shortcut: `${metaDisplay} k`,
+      keywords: "link url uri href",
     },
     {
       name: "video",

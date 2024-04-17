@@ -110,7 +110,7 @@ export default class Video extends Node {
     (event: React.KeyboardEvent<HTMLParagraphElement>) => {
       // Pressing Enter in the caption field should move the cursor/selection
       // below the video
-      if (event.key === "Enter") {
+      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
         event.preventDefault();
 
         const { view } = this.editor;

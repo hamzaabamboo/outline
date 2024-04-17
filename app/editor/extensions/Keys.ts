@@ -72,7 +72,7 @@ export default class Keys extends Extension {
             // edge case where horizontal gap cursor does nothing if Enter key
             // is pressed. Insert a newline and then move the cursor into it.
             if (view.state.selection instanceof GapCursor) {
-              if (event.key === "Enter") {
+              if (event.key === "Enter" && !event.isComposing) {
                 view.dispatch(
                   view.state.tr.insert(
                     view.state.selection.from,

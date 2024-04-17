@@ -129,6 +129,9 @@ class LinkEditor extends React.Component<Props, State> {
 
     switch (event.key) {
       case "Enter": {
+        if (event.nativeEvent.isComposing) {
+          return;
+        }
         event.preventDefault();
         const { selectedIndex, value } = this.state;
         const { onCreateLink } = this.props;
