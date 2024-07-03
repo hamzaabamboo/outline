@@ -4,8 +4,11 @@ import isEmpty from "lodash/isEmpty";
 import isUUID from "validator/lib/isUUID";
 import { z } from "zod";
 import { DocumentPermission, StatusFilter } from "@shared/types";
+import { IconLibrary } from "@shared/utils/IconLibrary";
 import { UrlHelper } from "@shared/utils/UrlHelper";
 import { BaseSchema } from "@server/routes/api/schema";
+import { zodEnumFromObjectKeys } from "@server/utils/zod";
+import { ValidateColor } from "@server/validation";
 
 const DocumentsSortParamsSchema = z.object({
   /** Specifies the attributes by which documents will be sorted in the list */
@@ -118,7 +121,7 @@ export const DocumentsInfoSchema = BaseSchema.extend({
       .refine((val) => isUUID(val) || UrlHelper.SHARE_URL_SLUG_REGEX.test(val))
       .optional(),
 
-    /** Version of the API to be used */
+    /** @deprecated Version of the API to be used, remove in a few releases */
     apiVersion: z.number().optional(),
   }),
 }).refine((req) => !(isEmpty(req.body.id) && isEmpty(req.body.shareId)), {
@@ -152,6 +155,9 @@ export const DocumentsSearchSchema = BaseSchema.extend({
 
     /** Filter results based on user */
     userId: z.string().uuid().optional(),
+
+    /** Filter results based on content within a document and it's children */
+    documentId: z.string().uuid().optional(),
 
     /**
      * Whether to include archived documents in results
@@ -220,6 +226,20 @@ export const DocumentsUpdateSchema = BaseSchema.extend({
     /** Emoji displayed alongside doc title */
     emoji: z.string().regex(emojiRegex()).nullish(),
 
+    /** Icon displayed alongside doc title */
+    icon: z
+      .union([
+        z.string().regex(emojiRegex()),
+        zodEnumFromObjectKeys(IconLibrary.mapping),
+      ])
+      .nullish(),
+
+    /** Icon color */
+    color: z
+      .string()
+      .regex(ValidateColor.regex, { message: ValidateColor.message })
+      .nullish(),
+
     /** Boolean to denote if the doc should occupy full width */
     fullWidth: z.boolean().optional(),
 
@@ -238,7 +258,7 @@ export const DocumentsUpdateSchema = BaseSchema.extend({
     /** Boolean to denote if text should be appended */
     append: z.boolean().optional(),
 
-    /** Version of the API to be used */
+    /** @deprecated Version of the API to be used, remove in a few releases */
     apiVersion: z.number().optional(),
 
     /** Whether the editing session is complete */
@@ -284,7 +304,7 @@ export type DocumentsDeleteReq = z.infer<typeof DocumentsDeleteSchema>;
 
 export const DocumentsUnpublishSchema = BaseSchema.extend({
   body: BaseIdSchema.extend({
-    /** Version of the API to be used */
+    /** @deprecated Version of the API to be used, remove in a few releases */
     apiVersion: z.number().optional(),
   }),
 });
@@ -316,7 +336,21 @@ export const DocumentsCreateSchema = BaseSchema.extend({
     text: z.string().default(""),
 
     /** Emoji displayed alongside doc title */
-    emoji: z.string().regex(emojiRegex()).optional(),
+    emoji: z.string().regex(emojiRegex()).nullish(),
+
+    /** Icon displayed alongside doc title */
+    icon: z
+      .union([
+        z.string().regex(emojiRegex()),
+        zodEnumFromObjectKeys(IconLibrary.mapping),
+      ])
+      .optional(),
+
+    /** Icon color */
+    color: z
+      .string()
+      .regex(ValidateColor.regex, { message: ValidateColor.message })
+      .nullish(),
 
     /** Boolean to denote if the doc should be published */
     publish: z.boolean().optional(),
@@ -345,15 +379,20 @@ export const DocumentsCreateSchema = BaseSchema.extend({
     template: z.boolean().optional(),
   }),
 })
-  .refine((req) => !(req.body.parentDocumentId && !req.body.collectionId), {
-    message: "collectionId is required to create a nested document",
-  })
   .refine((req) => !(req.body.template && !req.body.collectionId), {
     message: "collectionId is required to create a template document",
   })
-  .refine((req) => !(req.body.publish && !req.body.collectionId), {
-    message: "collectionId is required to publish",
-  });
+  .refine(
+    (req) =>
+      !(
+        req.body.publish &&
+        !req.body.parentDocumentId &&
+        !req.body.collectionId
+      ),
+    {
+      message: "collectionId or parentDocumentId is required to publish",
+    }
+  );
 
 export type DocumentsCreateReq = z.infer<typeof DocumentsCreateSchema>;
 

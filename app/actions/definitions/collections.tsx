@@ -3,6 +3,8 @@ import {
   EditIcon,
   PadlockIcon,
   PlusIcon,
+  SearchIcon,
+  ShapesIcon,
   StarredIcon,
   TrashIcon,
   UnstarredIcon,
@@ -10,14 +12,17 @@ import {
 import * as React from "react";
 import stores from "~/stores";
 import Collection from "~/models/Collection";
-import CollectionPermissions from "~/scenes/CollectionPermissions";
 import { CollectionEdit } from "~/components/Collection/CollectionEdit";
 import { CollectionNew } from "~/components/Collection/CollectionNew";
 import CollectionDeleteDialog from "~/components/CollectionDeleteDialog";
 import DynamicCollectionIcon from "~/components/Icons/CollectionIcon";
+import SharePopover from "~/components/Sharing/Collection/SharePopover";
+import { getHeaderExpandedKey } from "~/components/Sidebar/components/Header";
 import { createAction } from "~/actions";
 import { CollectionSection } from "~/actions/sections";
+import { setPersistedState } from "~/hooks/usePersistedState";
 import history from "~/utils/history";
+import { newTemplatePath, searchPath } from "~/utils/routeHelpers";
 
 const ColorCollectionIcon = ({ collection }: { collection: Collection }) => (
   <DynamicCollectionIcon collection={collection} />
@@ -96,16 +101,38 @@ export const editCollectionPermissions = createAction({
   visible: ({ stores, activeCollectionId }) =>
     !!activeCollectionId &&
     stores.policies.abilities(activeCollectionId).update,
-  perform: ({ t, activeCollectionId }) => {
+  perform: ({ t, stores, activeCollectionId }) => {
     if (!activeCollectionId) {
+      return;
+    }
+    const collection = stores.collections.get(activeCollectionId);
+    if (!collection) {
       return;
     }
 
     stores.dialogs.openModal({
-      title: t("Collection permissions"),
-      fullscreen: true,
-      content: <CollectionPermissions collectionId={activeCollectionId} />,
+      title: t("Share this collection"),
+      content: (
+        <SharePopover
+          collection={collection}
+          onRequestClose={stores.dialogs.closeAllModals}
+          visible
+        />
+      ),
     });
+  },
+});
+
+export const searchInCollection = createAction({
+  name: ({ t }) => t("Search in collection"),
+  analyticsName: "Search collection",
+  section: CollectionSection,
+  icon: <SearchIcon />,
+  visible: ({ activeCollectionId }) =>
+    !!activeCollectionId &&
+    stores.policies.abilities(activeCollectionId).readDocument,
+  perform: ({ activeCollectionId }) => {
+    history.push(searchPath(undefined, { collectionId: activeCollectionId }));
   },
 });
 
@@ -132,6 +159,7 @@ export const starCollection = createAction({
 
     const collection = stores.collections.get(activeCollectionId);
     await collection?.star();
+    setPersistedState(getHeaderExpandedKey("starred"), true);
   },
 });
 
@@ -192,6 +220,27 @@ export const deleteCollection = createAction({
         />
       ),
     });
+  },
+});
+
+export const createTemplate = createAction({
+  name: ({ t }) => t("New template"),
+  analyticsName: "New template",
+  section: CollectionSection,
+  icon: <ShapesIcon />,
+  keywords: "new create template",
+  visible: ({ activeCollectionId, stores }) =>
+    !!(
+      !!activeCollectionId &&
+      stores.policies.abilities(activeCollectionId).createDocument
+    ),
+  perform: ({ activeCollectionId, event }) => {
+    if (!activeCollectionId) {
+      return;
+    }
+    event?.preventDefault();
+    event?.stopPropagation();
+    history.push(newTemplatePath(activeCollectionId));
   },
 });
 

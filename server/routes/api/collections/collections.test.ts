@@ -1,5 +1,4 @@
 import { CollectionPermission } from "@shared/types";
-import { colorPalette } from "@shared/utils/collections";
 import { Document, UserMembership, GroupPermission } from "@server/models";
 import {
   buildUser,
@@ -175,6 +174,23 @@ describe("#collections.move", () => {
         id: collection.id,
         index: "P",
         icon: "flame",
+      },
+    });
+    const body = await res.json();
+    expect(res.status).toEqual(200);
+    expect(body.success).toBe(true);
+  });
+
+  it("should allow setting an emoji as icon", async () => {
+    const team = await buildTeam();
+    const admin = await buildAdmin({ teamId: team.id });
+    const collection = await buildCollection({ teamId: team.id });
+    const res = await server.post("/api/collections.move", {
+      body: {
+        token: admin.getJwtToken(),
+        id: collection.id,
+        index: "P",
+        icon: "😁",
       },
     });
     const body = await res.json();
@@ -1150,7 +1166,6 @@ describe("#collections.create", () => {
     expect(body.data.name).toBe("Test");
     expect(body.data.sort.field).toBe("index");
     expect(body.data.sort.direction).toBe("asc");
-    expect(colorPalette.includes(body.data.color)).toBeTruthy();
     expect(body.policies.length).toBe(1);
     expect(body.policies[0].abilities.read).toBeTruthy();
   });
@@ -1316,6 +1331,48 @@ describe("#collections.update", () => {
     expect(res.status).toEqual(200);
     expect(body.data.name).toBe("Test");
     expect(body.policies.length).toBe(1);
+  });
+
+  it("allows editing description", async () => {
+    const team = await buildTeam();
+    const admin = await buildAdmin({ teamId: team.id });
+    const collection = await buildCollection({ teamId: team.id });
+    const res = await server.post("/api/collections.update", {
+      body: {
+        token: admin.getJwtToken(),
+        id: collection.id,
+        description: "Test",
+      },
+    });
+    const body = await res.json();
+    expect(res.status).toEqual(200);
+    expect(body.data.description).toBe("Test");
+
+    await collection.reload();
+
+    expect(collection.description).toBe("Test");
+    expect(collection.content).toBeTruthy();
+  });
+
+  it("allows editing data", async () => {
+    const team = await buildTeam();
+    const admin = await buildAdmin({ teamId: team.id });
+    const collection = await buildCollection({ teamId: team.id });
+    const res = await server.post("/api/collections.update", {
+      body: {
+        token: admin.getJwtToken(),
+        id: collection.id,
+        data: {
+          content: [
+            { content: [{ text: "Test", type: "text" }], type: "paragraph" },
+          ],
+          type: "doc",
+        },
+      },
+    });
+    const body = await res.json();
+    expect(res.status).toEqual(200);
+    expect(body.data.description).toBe("Test");
   });
 
   it("allows editing sort", async () => {

@@ -3,12 +3,19 @@ import i18n, { t } from "i18next";
 import capitalize from "lodash/capitalize";
 import floor from "lodash/floor";
 import { action, autorun, computed, observable, set } from "mobx";
+import { Node, Schema } from "prosemirror-model";
+import ExtensionManager from "@shared/editor/lib/ExtensionManager";
+import { richExtensions, withComments } from "@shared/editor/nodes";
+import type {
+  JSONObject,
+  NavigationNode,
+  ProsemirrorData,
+} from "@shared/types";
 import {
   ExportContentType,
   FileOperationFormat,
   NotificationEventType,
 } from "@shared/types";
-import type { JSONObject, NavigationNode } from "@shared/types";
 import Storage from "@shared/utils/Storage";
 import { isRTL } from "@shared/utils/rtl";
 import slugify from "@shared/utils/slugify";
@@ -61,6 +68,9 @@ export default class Document extends ParanoidModel {
   @observable
   id: string;
 
+  @observable.shallow
+  data: ProsemirrorData;
+
   /**
    * The original data source of the document, if imported.
    */
@@ -112,12 +122,6 @@ export default class Document extends ParanoidModel {
   collection?: Collection;
 
   /**
-   * The text content of the document as Markdown.
-   */
-  @observable
-  text: string;
-
-  /**
    * The title of the document.
    */
   @Field
@@ -125,11 +129,18 @@ export default class Document extends ParanoidModel {
   title: string;
 
   /**
-   * An emoji to use as the document icon.
+   * An icon (or) emoji to use as the document icon.
    */
   @Field
   @observable
-  emoji: string | undefined | null;
+  icon?: string | null;
+
+  /**
+   * The color to use for the document icon.
+   */
+  @Field
+  @observable
+  color?: string | null;
 
   /**
    * Whether this is a template.
@@ -515,6 +526,17 @@ export default class Document extends ParanoidModel {
     recursive?: boolean;
   }) => this.store.duplicate(this, options);
 
+  /**
+   * Returns the first blocks of the document, useful for displaying a preview.
+   *
+   * @param blocks The number of blocks to return, defaults to 4.
+   * @returns A new ProseMirror document.
+   */
+  getSummary = (blocks = 4) => ({
+    ...this.data,
+    content: this.data.content.slice(0, blocks),
+  });
+
   @computed
   get pinned(): boolean {
     return !!this.store.rootStore.pins.orderedData.find(
@@ -536,17 +558,38 @@ export default class Document extends ParanoidModel {
   }
 
   @computed
+  get childDocuments() {
+    return this.store.orderedData.filter(
+      (doc) => doc.parentDocumentId === this.id
+    );
+  }
+
+  @computed
   get asNavigationNode(): NavigationNode {
     return {
       id: this.id,
       title: this.title,
-      children: this.store.orderedData
-        .filter((doc) => doc.parentDocumentId === this.id)
-        .map((doc) => doc.asNavigationNode),
+      children: this.childDocuments.map((doc) => doc.asNavigationNode),
       url: this.url,
       isDraft: this.isDraft,
     };
   }
+
+  /**
+   * Returns the markdown representation of the document derived from the ProseMirror data.
+   *
+   * @returns The markdown representation of the document as a string.
+   */
+  toMarkdown = () => {
+    const extensionManager = new ExtensionManager(withComments(richExtensions));
+    const serializer = extensionManager.serializer();
+    const schema = new Schema({
+      nodes: extensionManager.nodes,
+      marks: extensionManager.marks,
+    });
+    const markdown = serializer.serialize(Node.fromJSON(schema, this.data));
+    return markdown;
+  };
 
   download = (contentType: ExportContentType) =>
     client.post(

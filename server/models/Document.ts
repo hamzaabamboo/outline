@@ -47,8 +47,8 @@ import type {
   ProsemirrorData,
   SourceMetadata,
 } from "@shared/types";
+import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { UrlHelper } from "@shared/utils/UrlHelper";
-import getTasks from "@shared/utils/getTasks";
 import slugify from "@shared/utils/slugify";
 import { DocumentValidation } from "@shared/validations";
 import { ValidationError } from "@server/errors";
@@ -63,7 +63,8 @@ import UserMembership from "./UserMembership";
 import View from "./View";
 import ParanoidModel from "./base/ParanoidModel";
 import Fix from "./decorators/Fix";
-import DocumentHelper from "./helpers/DocumentHelper";
+import { DocumentHelper } from "./helpers/DocumentHelper";
+import IsHexColor from "./validators/IsHexColor";
 import Length from "./validators/Length";
 
 export const DOCUMENT_VERSION = 2;
@@ -75,9 +76,6 @@ type AdditionalFindOptions = {
 };
 
 @DefaultScope(() => ({
-  attributes: {
-    exclude: ["state"],
-  },
   include: [
     {
       model: User,
@@ -194,6 +192,13 @@ type AdditionalFindOptions = {
       ],
     };
   },
+  withAllMemberships: {
+    include: [
+      {
+        association: "memberships",
+      },
+    ],
+  },
 }))
 @Table({ tableName: "documents", modelName: "document" })
 @Fix
@@ -250,13 +255,29 @@ class Document extends ParanoidModel<
   @Column
   editorVersion: string;
 
-  /** An emoji to use as the document icon. */
+  /**
+   * An emoji to use as the document icon,
+   * This is used as fallback (for backward compat) when icon is not set.
+   */
   @Length({
-    max: 1,
-    msg: `Emoji must be a single character`,
+    max: 50,
+    msg: `Emoji must be 50 characters or less`,
   })
   @Column
   emoji: string | null;
+
+  /** An icon to use as the document icon. */
+  @Length({
+    max: 50,
+    msg: `icon must be 50 characters or less`,
+  })
+  @Column
+  icon: string | null;
+
+  /** The color of the icon. */
+  @IsHexColor
+  @Column
+  color: string | null;
 
   /**
    * The content of the document as Markdown.
@@ -330,7 +351,9 @@ class Document extends ParanoidModel<
   }
 
   get tasks() {
-    return getTasks(this.text || "");
+    return ProsemirrorHelper.getTasksSummary(
+      DocumentHelper.toProsemirror(this)
+    );
   }
 
   // hooks
@@ -346,7 +369,11 @@ class Document extends ParanoidModel<
       model.archivedAt ||
       model.template ||
       !model.publishedAt ||
-      !(model.changed("title") || model.changed("emoji")) ||
+      !(
+        model.changed("title") ||
+        model.changed("icon") ||
+        model.changed("color")
+      ) ||
       !model.collectionId
     ) {
       return;
@@ -404,7 +431,7 @@ class Document extends ParanoidModel<
   }
 
   @BeforeUpdate
-  static processUpdate(model: Document) {
+  static async processUpdate(model: Document) {
     // ensure documents have a title
     model.title = model.title || "";
 
@@ -424,7 +451,7 @@ class Document extends ParanoidModel<
 
     // backfill content if it's missing
     if (!model.content) {
-      model.content = DocumentHelper.toJSON(model);
+      model.content = await DocumentHelper.toJSON(model);
     }
 
     // ensure the last modifying user is a collaborator
@@ -535,6 +562,25 @@ class Document extends ParanoidModel<
   @HasMany(() => View)
   views: View[];
 
+  /**
+   * Returns an array of unique userIds that are members of a document via direct membership
+   *
+   * @param documentId
+   * @returns userIds
+   */
+  static async membershipUserIds(documentId: string) {
+    const document = await this.scope("withAllMemberships").findOne({
+      where: {
+        id: documentId,
+      },
+    });
+    if (!document) {
+      return [];
+    }
+
+    return document.memberships.map((membership) => membership.userId);
+  }
+
   static defaultScopeWithUser(userId: string) {
     const collectionScope: Readonly<ScopeOptions> = {
       method: ["withCollectionPermissions", userId],
@@ -582,7 +628,6 @@ class Document extends ParanoidModel<
     // allow default preloading of collection membership if `userId` is passed in find options
     // almost every endpoint needs the collection membership to determine policy permissions.
     const scope = this.scope([
-      ...(includeState ? [] : ["withoutState"]),
       "withDrafts",
       {
         method: ["withCollectionPermissions", userId, rest.paranoid],
@@ -684,6 +729,8 @@ class Document extends ParanoidModel<
     this.text = revision.text;
     this.title = revision.title;
     this.emoji = revision.emoji;
+    this.icon = revision.icon;
+    this.color = revision.color;
   };
 
   /**
@@ -1046,6 +1093,8 @@ class Document extends ParanoidModel<
       title: this.title,
       url: this.url,
       emoji: isNil(this.emoji) ? undefined : this.emoji,
+      icon: isNil(this.icon) ? undefined : this.icon,
+      color: isNil(this.color) ? undefined : this.color,
       children,
     };
   };

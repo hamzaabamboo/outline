@@ -23,19 +23,21 @@ import {
   Placement,
 } from "./ContextMenu";
 import { MenuAnchorCSS } from "./ContextMenu/MenuItem";
+import Separator from "./ContextMenu/Separator";
 import { LabelText } from "./Input";
 
 export type Option = {
   label: string | JSX.Element;
   value: string;
   description?: string;
+  divider?: boolean;
 };
 
 export type Props = {
   id?: string;
   name?: string;
   value?: string | null;
-  label?: string;
+  label?: React.ReactNode;
   nude?: boolean;
   ariaLabel: string;
   short?: boolean;
@@ -47,6 +49,12 @@ export type Props = {
   /** @deprecated Removing soon, do not use. */
   note?: React.ReactNode;
   onChange?: (value: string | null) => void;
+  style?: React.CSSProperties;
+  /**
+   * Set to true if this component is rendered inside a Modal.
+   * The Modal will take care of preventing body scroll behaviour.
+   */
+  skipBodyScroll?: boolean;
 };
 
 export interface InputSelectRef {
@@ -76,6 +84,7 @@ const InputSelect = (props: Props, ref: React.RefObject<InputSelectRef>) => {
     note,
     icon,
     nude,
+    skipBodyScroll,
     ...rest
   } = props;
 
@@ -88,7 +97,7 @@ const InputSelect = (props: Props, ref: React.RefObject<InputSelectRef>) => {
   const popover = useSelectPopover({
     ...select,
     hideOnClickOutside: false,
-    preventBodyScroll: true,
+    preventBodyScroll: skipBodyScroll ? false : true,
     disabled,
   });
 
@@ -145,6 +154,10 @@ const InputSelect = (props: Props, ref: React.RefObject<InputSelectRef>) => {
 
   React.useEffect(() => {
     previousValue.current = value;
+
+    // Update the selected value if it changes from the outside – both of these lines are needed
+    // for correct functioning
+    select.selectedValue = value;
     select.setSelectedValue(value);
   }, [value]);
 
@@ -213,7 +226,12 @@ const InputSelect = (props: Props, ref: React.RefObject<InputSelectRef>) => {
             </StyledButton>
           )}
         </Select>
-        <SelectPopover {...select} {...popover} aria-label={ariaLabel}>
+        <SelectPopover
+          {...select}
+          {...popover}
+          aria-label={ariaLabel}
+          preventBodyScroll={skipBodyScroll ? false : true}
+        >
           {(popoverProps: InnerProps) => {
             const topAnchor = popoverProps.style?.top === "0";
             const rightAnchor = popoverProps.placement === "bottom-end";
@@ -243,16 +261,19 @@ const InputSelect = (props: Props, ref: React.RefObject<InputSelectRef>) => {
                         const isSelected = select.selectedValue === opt.value;
                         const Icon = isSelected ? CheckmarkIcon : Spacer;
                         return (
-                          <StyledSelectOption
-                            {...select}
-                            value={opt.value}
-                            key={opt.value}
-                            ref={isSelected ? selectedRef : undefined}
-                          >
-                            <Icon />
-                            &nbsp;
-                            {labelForOption(opt)}
-                          </StyledSelectOption>
+                          <React.Fragment key={opt.value}>
+                            {opt.divider && <Separator />}
+                            <StyledSelectOption
+                              {...select}
+                              value={opt.value}
+                              key={opt.value}
+                              ref={isSelected ? selectedRef : undefined}
+                            >
+                              <Icon />
+                              &nbsp;
+                              {labelForOption(opt)}
+                            </StyledSelectOption>
+                          </React.Fragment>
                         );
                       })
                     : null}

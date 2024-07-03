@@ -1,7 +1,8 @@
 import { Transaction } from "sequelize";
 import { Optional } from "utility-types";
 import { Document, Event, User } from "@server/models";
-import TextHelper from "@server/models/helpers/TextHelper";
+import { ProsemirrorHelper } from "@server/models/helpers/ProsemirrorHelper";
+import { TextHelper } from "@server/models/helpers/TextHelper";
 
 type Props = Optional<
   Pick<
@@ -10,7 +11,9 @@ type Props = Optional<
     | "urlId"
     | "title"
     | "text"
-    | "emoji"
+    | "content"
+    | "icon"
+    | "color"
     | "collectionId"
     | "parentDocumentId"
     | "importId"
@@ -34,13 +37,15 @@ type Props = Optional<
 export default async function documentCreator({
   title = "",
   text = "",
-  emoji,
+  icon,
+  color,
   state,
   id,
   urlId,
   publish,
   collectionId,
   parentDocumentId,
+  content,
   template,
   templateDocument,
   fullWidth,
@@ -56,6 +61,12 @@ export default async function documentCreator({
   transaction,
 }: Props): Promise<Document> {
   const templateId = templateDocument ? templateDocument.id : undefined;
+
+  if (state && templateDocument) {
+    throw new Error(
+      "State cannot be set when creating a document from a template"
+    );
+  }
 
   if (urlId) {
     const existing = await Document.unscoped().findOne({
@@ -88,7 +99,9 @@ export default async function documentCreator({
       importId,
       sourceMetadata,
       fullWidth: templateDocument ? templateDocument.fullWidth : fullWidth,
-      emoji: templateDocument ? templateDocument.emoji : emoji,
+      emoji: templateDocument ? templateDocument.emoji : icon,
+      icon: templateDocument ? templateDocument.emoji : icon,
+      color: templateDocument ? templateDocument.color : color,
       title: TextHelper.replaceTemplateVariables(
         templateDocument ? templateDocument.title : title,
         user
@@ -102,6 +115,12 @@ export default async function documentCreator({
         ip,
         transaction
       ),
+      content: templateDocument
+        ? ProsemirrorHelper.replaceTemplateVariables(
+            templateDocument.content,
+            user
+          )
+        : content,
       state,
     },
     {

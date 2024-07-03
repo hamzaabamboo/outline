@@ -1,5 +1,6 @@
 import { FetchError } from "node-fetch";
 import { Op } from "sequelize";
+import { colorPalette } from "@shared/utils/collections";
 import WebhookDisabledEmail from "@server/emails/templates/WebhookDisabledEmail";
 import env from "@server/env";
 import Logger from "@server/logging/Logger";
@@ -423,12 +424,18 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
       paranoid: false,
     });
 
+    const collection = model && (await presentCollection(undefined, model));
+    if (collection) {
+      // For backward compatibility, set a default color.
+      collection.color = collection.color ?? colorPalette[0];
+    }
+
     await this.sendWebhook({
       event,
       subscription,
       payload: {
         id: event.collectionId,
-        model: model && presentCollection(model),
+        model: collection,
       },
     });
   }
@@ -448,13 +455,20 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
       paranoid: false,
     });
 
+    const collection =
+      model && (await presentCollection(undefined, model.collection!));
+    if (collection) {
+      // For backward compatibility, set a default color.
+      collection.color = collection.color ?? colorPalette[0];
+    }
+
     await this.sendWebhook({
       event,
       subscription,
       payload: {
         id: event.modelId,
         model: model && presentMembership(model),
-        collection: model && presentCollection(model.collection!),
+        collection,
         user: model && presentUser(model.user),
       },
     });
@@ -475,13 +489,20 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
       paranoid: false,
     });
 
+    const collection =
+      model && (await presentCollection(undefined, model.collection!));
+    if (collection) {
+      // For backward compatibility, set a default color.
+      collection.color = collection.color ?? colorPalette[0];
+    }
+
     await this.sendWebhook({
       event,
       subscription,
       payload: {
         id: event.modelId,
         model: model && presentCollectionGroupMembership(model),
-        collection: model && presentCollection(model.collection!),
+        collection,
         group: model && presentGroup(model.group),
       },
     });
@@ -518,7 +539,12 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
       subscription,
       payload: {
         id: event.documentId,
-        model: model && (await presentDocument(model)),
+        model:
+          model &&
+          (await presentDocument(undefined, model, {
+            includeData: true,
+            includeText: true,
+          })),
       },
     });
   }
@@ -544,7 +570,12 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
       payload: {
         id: event.modelId,
         model: model && presentMembership(model),
-        document: model && (await presentDocument(model.document!)),
+        document:
+          model &&
+          (await presentDocument(undefined, model.document!, {
+            includeData: true,
+            includeText: true,
+          })),
         user: model && presentUser(model.user),
       },
     });

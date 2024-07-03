@@ -13,6 +13,11 @@ export enum StatusFilter {
   Draft = "draft",
 }
 
+export enum CommentStatusFilter {
+  Resolved = "resolved",
+  Unresolved = "unresolved",
+}
+
 export enum Client {
   Web = "web",
   Desktop = "desktop",
@@ -52,9 +57,9 @@ export enum MentionType {
 export type PublicEnv = {
   ROOT_SHARE_ID?: string;
   analytics: {
-    service?: IntegrationService;
-    settings?: IntegrationSettings<IntegrationType.Analytics>;
-  };
+    service: IntegrationService;
+    settings: IntegrationSettings<IntegrationType.Analytics>;
+  }[];
 };
 
 export enum AttachmentPreset {
@@ -82,6 +87,7 @@ export enum IntegrationService {
   Grist = "grist",
   Slack = "slack",
   GoogleAnalytics = "google-analytics",
+  Matomo = "matomo",
   GitHub = "github",
 }
 
@@ -90,12 +96,14 @@ export type UserCreatableIntegrationService = Extract<
   | IntegrationService.Diagrams
   | IntegrationService.Grist
   | IntegrationService.GoogleAnalytics
+  | IntegrationService.Matomo
 >;
 
 export const UserCreatableIntegrationService = {
   Diagrams: IntegrationService.Diagrams,
   Grist: IntegrationService.Grist,
   GoogleAnalytics: IntegrationService.GoogleAnalytics,
+  Matomo: IntegrationService.Matomo,
 } as const;
 
 export enum CollectionPermission {
@@ -107,6 +115,7 @@ export enum CollectionPermission {
 export enum DocumentPermission {
   Read = "read",
   ReadWrite = "read_write",
+  Admin = "admin",
 }
 
 export type IntegrationSettings<T> = T extends IntegrationType.Embed
@@ -120,7 +129,7 @@ export type IntegrationSettings<T> = T extends IntegrationType.Embed
       };
     }
   : T extends IntegrationType.Analytics
-  ? { measurementId: string }
+  ? { measurementId: string; instanceUrl?: string }
   : T extends IntegrationType.Post
   ? { url: string; channel: string; channelId: string }
   : T extends IntegrationType.Command
@@ -178,7 +187,13 @@ export type PublicTeam = {
   avatarUrl: string;
   name: string;
   customTheme: Partial<CustomTheme>;
+  tocPosition: TOCPosition;
 };
+
+export enum TOCPosition {
+  Left = "left",
+  Right = "right",
+}
 
 export enum TeamPreference {
   /** Whether documents have a separate edit mode instead of always editing. */
@@ -189,10 +204,14 @@ export enum TeamPreference {
   ViewersCanExport = "viewersCanExport",
   /** Whether members can invite new users. */
   MembersCanInvite = "membersCanInvite",
+  /** Whether members can create API keys. */
+  MembersCanCreateApiKey = "membersCanCreateApiKey",
   /** Whether users can comment on documents. */
   Commenting = "commenting",
   /** The custom theme for the team. */
   CustomTheme = "customTheme",
+  /** Side to display the document's table of contents in relation to the main content. */
+  TocPosition = "tocPosition",
 }
 
 export type TeamPreferences = {
@@ -200,8 +219,10 @@ export type TeamPreferences = {
   [TeamPreference.PublicBranding]?: boolean;
   [TeamPreference.ViewersCanExport]?: boolean;
   [TeamPreference.MembersCanInvite]?: boolean;
+  [TeamPreference.MembersCanCreateApiKey]?: boolean;
   [TeamPreference.Commenting]?: boolean;
   [TeamPreference.CustomTheme]?: Partial<CustomTheme>;
+  [TeamPreference.TocPosition]?: TOCPosition;
 };
 
 export enum NavigationNodeType {
@@ -214,6 +235,8 @@ export type NavigationNode = {
   title: string;
   url: string;
   emoji?: string;
+  icon?: string;
+  color?: string;
   children: NavigationNode[];
   isDraft?: boolean;
   collectionId?: string;
@@ -374,4 +397,58 @@ export type JSONValue =
 
 export type JSONObject = { [x: string]: JSONValue };
 
-export type ProsemirrorData = JSONObject;
+export type ProsemirrorData = {
+  type: string;
+  content: ProsemirrorData[];
+  text?: string;
+  attrs?: JSONObject;
+  marks?: {
+    type: string;
+    attrs: JSONObject;
+  }[];
+};
+
+export type ProsemirrorDoc = {
+  type: "doc";
+  content: ProsemirrorData[];
+};
+
+export enum IconType {
+  Outline = "outline",
+  Emoji = "emoji",
+}
+
+export enum EmojiCategory {
+  People = "People",
+  Nature = "Nature",
+  Foods = "Foods",
+  Activity = "Activity",
+  Places = "Places",
+  Objects = "Objects",
+  Symbols = "Symbols",
+  Flags = "Flags",
+}
+
+export enum EmojiSkinTone {
+  Default = "Default",
+  Light = "Light",
+  MediumLight = "MediumLight",
+  Medium = "Medium",
+  MediumDark = "MediumDark",
+  Dark = "Dark",
+}
+
+export type Emoji = {
+  id: string;
+  name: string;
+  value: string;
+};
+
+export type EmojiVariants = {
+  [EmojiSkinTone.Default]: Emoji;
+  [EmojiSkinTone.Light]?: Emoji;
+  [EmojiSkinTone.MediumLight]?: Emoji;
+  [EmojiSkinTone.Medium]?: Emoji;
+  [EmojiSkinTone.MediumDark]?: Emoji;
+  [EmojiSkinTone.Dark]?: Emoji;
+};

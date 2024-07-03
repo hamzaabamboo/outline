@@ -223,6 +223,7 @@ const FloatingToolbar = React.forwardRef(function FloatingToolbar_(
       return (
         <ReactPortal>
           <MobileWrapper
+            ref={menuRef}
             style={{
               bottom: `0`,
             }}
