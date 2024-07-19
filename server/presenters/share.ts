@@ -7,6 +7,9 @@ export default function presentShare(share: Share, isAdmin = false) {
     documentId: share.documentId,
     documentTitle: share.document?.title,
     documentUrl: share.document?.url,
+    documentSummary: share.document?.getSummary(),
+    documentCreatedAt: share.document?.createdAt,
+    collectionName: share.document?.collection?.name,
     published: share.published,
     url: share.canonicalUrl,
     urlId: share.urlId,
@@ -21,6 +24,9 @@ export default function presentShare(share: Share, isAdmin = false) {
 
   if (!isAdmin) {
     delete data.lastAccessedAt;
+    delete data.documentSummary;
+    delete data.documentCreatedAt;
+    delete data.collectionName;
   }
 
   return data;
