@@ -611,7 +611,7 @@ const embeds: EmbedDescriptor[] = [
     title: "X",
     keywords: "twitter x",
     regexMatch: [
-      /^(?:https?:\/\/)?(?:www\.)?(?:(?:twitter)|(?:x))(?:\.com)\/(.*?)\/(?:status)\/(\d+)(?:[\&\?].*)?$/i,
+      /^(?:https?:\/\/)?(?:www\.)?(?:(?:twitter)|(?:x))(?:\.com)\/(.*?)\/(?:status)\/(\d+?)(?:\/photo\/1)?(?:[\&\?].*)?$/i,
     ],
     icon: <Img src="/images/twitter.png" alt="Twitter" />,
     component: Twitter,

@@ -9,10 +9,10 @@ import * as React from "react";
 import { WithTranslation, withTranslation } from "react-i18next";
 import {
   Prompt,
+  Redirect,
   RouteComponentProps,
   StaticContext,
   withRouter,
-  Redirect,
 } from "react-router";
 import { toast } from "sonner";
 import styled from "styled-components";
@@ -25,15 +25,13 @@ import {
   TOCPosition,
   TeamPreference,
 } from "@shared/types";
-import { ProsemirrorHelper, Heading } from "@shared/utils/ProsemirrorHelper";
-import { parseDomain } from "@shared/utils/domains";
+import { Heading, ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { determineIconType } from "@shared/utils/icon";
 import RootStore from "~/stores/RootStore";
 import Document from "~/models/Document";
 import Revision from "~/models/Revision";
 import DocumentMove from "~/scenes/DocumentMove";
 import DocumentPublish from "~/scenes/DocumentPublish";
-import Branding from "~/components/Branding";
 import ConnectionStatus from "~/components/ConnectionStatus";
 import ErrorBoundary from "~/components/ErrorBoundary";
 import LoadingIndicator from "~/components/LoadingIndicator";
@@ -49,8 +47,8 @@ import { emojiToUrl } from "~/utils/emoji";
 import { isModKey } from "~/utils/keyboard";
 
 import {
-  documentHistoryPath,
   documentEditPath,
+  documentHistoryPath,
   updateDocumentPath,
 } from "~/utils/routeHelpers";
 import Container from "./Container";
@@ -596,11 +594,11 @@ class DocumentScene extends React.Component<Props> {
                 )}
               </React.Suspense>
             </MeasuredContainer>
-            {isShare &&
+            {/* {isShare &&
               !parseDomain(window.location.origin).custom &&
               !auth.user && (
                 <Branding href="//www.getoutline.com?ref=sharelink" />
-              )}
+              )} */}
           </Container>
           {!isShare && (
             <Footer>
