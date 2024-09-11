@@ -295,6 +295,19 @@ const MobileWrapper = styled.div`
   border-top: 1px solid ${s("divider")};
   box-sizing: border-box;
   z-index: ${depths.editorToolbar};
+
+  &:after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background-color: ${s("menuBackground")};
+  }
+
+  @media print {
+    display: none;
+  }
 `;
 
 const Wrapper = styled.div<WrapperProps>`

@@ -32,7 +32,6 @@ const PageTitle = ({ title, favicon }: Props) => {
         href={favicon ?? originalShortcutHref}
         key={favicon ?? originalShortcutHref}
       />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </Helmet>
   );
 };
