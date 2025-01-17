@@ -1,4 +1,4 @@
-import Token from "markdown-it/lib/token";
+import { Token } from "markdown-it";
 import {
   NodeSpec,
   Node as ProsemirrorNode,
@@ -34,7 +34,6 @@ export default class Mention extends Extension {
         },
       },
       inline: true,
-      content: "text*",
       marks: "",
       group: "inline",
       atom: true,

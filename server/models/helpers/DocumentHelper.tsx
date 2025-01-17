@@ -1,11 +1,9 @@
-import {
-  updateYFragment,
-  yDocToProsemirrorJSON,
-} from "@getoutline/y-prosemirror";
 import { JSDOM } from "jsdom";
 import { Node } from "prosemirror-model";
+import { updateYFragment, yDocToProsemirrorJSON } from "y-prosemirror";
 import * as Y from "yjs";
 import textBetween from "@shared/editor/lib/textBetween";
+import { getTextSerializers } from "@shared/editor/lib/textSerializers";
 import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
 import { IconType, ProsemirrorData } from "@shared/types";
 import { determineIconType } from "@shared/utils/icon";
@@ -14,7 +12,7 @@ import { addTags } from "@server/logging/tracer";
 import { trace } from "@server/logging/tracing";
 import { Collection, Document, Revision } from "@server/models";
 import diff from "@server/utils/diff";
-import { ProsemirrorHelper } from "./ProsemirrorHelper";
+import { MentionAttrs, ProsemirrorHelper } from "./ProsemirrorHelper";
 import { TextHelper } from "./TextHelper";
 
 type HTMLOptions = {
@@ -135,10 +133,10 @@ export class DocumentHelper {
    * Returns the document as plain text. This method uses the
    * collaborative state if available, otherwise it falls back to Markdown.
    *
-   * @param document The document or revision to convert
+   * @param document The document or revision or prosemirror data to convert
    * @returns The document content as plain text without formatting.
    */
-  static toPlainText(document: Document | Revision) {
+  static toPlainText(document: Document | Revision | ProsemirrorData) {
     const node = DocumentHelper.toProsemirror(document);
 
     return textBetween(node, 0, node.content.size, this.textSerializers);
@@ -225,11 +223,15 @@ export class DocumentHelper {
    * Parse a list of mentions contained in a document or revision
    *
    * @param document Document or Revision
+   * @param options Attributes to use for filtering mentions
    * @returns An array of mentions in passed document or revision
    */
-  static parseMentions(document: Document | Revision) {
+  static parseMentions(
+    document: Document | Revision,
+    options?: Partial<MentionAttrs>
+  ) {
     const node = DocumentHelper.toProsemirror(document);
-    return ProsemirrorHelper.parseMentions(node);
+    return ProsemirrorHelper.parseMentions(node, options);
   }
 
   /**
@@ -486,9 +488,5 @@ export class DocumentHelper {
     );
   }
 
-  private static textSerializers = Object.fromEntries(
-    Object.entries(schema.nodes)
-      .filter(([, n]) => n.spec.toPlainText)
-      .map(([name, n]) => [name, n.spec.toPlainText])
-  );
+  private static textSerializers = getTextSerializers(schema);
 }

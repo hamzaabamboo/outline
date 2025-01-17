@@ -464,7 +464,7 @@ export default class WebsocketsProcessor {
         const comment = await Comment.findByPk(event.modelId, {
           include: [
             {
-              model: Document.scope(["withoutState", "withDrafts"]),
+              model: Document.scope("withDrafts"),
               as: "document",
               required: true,
             },
@@ -486,7 +486,7 @@ export default class WebsocketsProcessor {
           paranoid: false,
           include: [
             {
-              model: Document.scope(["withoutState", "withDrafts"]),
+              model: Document.scope("withDrafts"),
               as: "document",
               required: true,
             },
@@ -502,6 +502,37 @@ export default class WebsocketsProcessor {
         );
         return socketio.to(channels).emit(event.name, {
           modelId: event.modelId,
+        });
+      }
+
+      case "comments.add_reaction":
+      case "comments.remove_reaction": {
+        const comment = await Comment.findByPk(event.modelId, {
+          include: [
+            {
+              model: Document.scope("withDrafts"),
+              as: "document",
+              required: true,
+            },
+          ],
+        });
+        if (!comment) {
+          return;
+        }
+
+        const user = await User.findByPk(event.actorId);
+        if (!user) {
+          return;
+        }
+
+        const channels = await this.getDocumentEventChannels(
+          event,
+          comment.document
+        );
+        return socketio.to(channels).emit(event.name, {
+          emoji: event.data.emoji,
+          commentId: event.modelId,
+          user: presentUser(user),
         });
       }
 
@@ -821,6 +852,8 @@ export default class WebsocketsProcessor {
         channels.push(
           ...this.getCollectionEventChannels(event, document.collection)
         );
+      } else if (document.isWorkspaceTemplate) {
+        channels.push(`team-${document.teamId}`);
       } else {
         channels.push(`collection-${document.collectionId}`);
       }

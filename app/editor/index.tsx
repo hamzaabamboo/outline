@@ -1,10 +1,10 @@
 /* global File Promise */
 import { PluginSimple } from "markdown-it";
+import { Observer } from "mobx-react";
 import { darken, transparentize } from "polished";
 import { baseKeymap } from "prosemirror-commands";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
-import { redo, undo } from "prosemirror-history";
 import { inputRules, InputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
 import { MarkdownParser } from "prosemirror-markdown";
@@ -34,6 +34,7 @@ import Extension, {
 import ExtensionManager from "@shared/editor/lib/ExtensionManager";
 import { MarkdownSerializer } from "@shared/editor/lib/markdown/serializer";
 import textBetween from "@shared/editor/lib/textBetween";
+import { getTextSerializers } from "@shared/editor/lib/textSerializers";
 import Mark from "@shared/editor/marks/Mark";
 import { basicExtensions as extensions } from "@shared/editor/nodes";
 import Node from "@shared/editor/nodes/Node";
@@ -91,6 +92,10 @@ export type Props = {
   scrollTo?: string;
   /** Callback for handling uploaded images, should return the url of uploaded file */
   uploadFile?: (file: File) => Promise<string>;
+  /** Callback when prosemirror nodes are initialized on document mount. */
+  onInit?: () => void;
+  /** Callback when prosemirror nodes are destroyed on document unmount. */
+  onDestroy?: () => void;
   /** Callback when editor is blurred, as native input */
   onBlur?: () => void;
   /** Callback when editor is focused, as native input */
@@ -176,6 +181,7 @@ export class Editor extends React.PureComponent<
     linkToolbarOpen: false,
   };
 
+  isInitialized = false;
   isBlurred = true;
   extensions: ExtensionManager;
   elementRef = React.createRef<HTMLDivElement>();
@@ -242,6 +248,12 @@ export class Editor extends React.PureComponent<
         ...this.view.props,
         editable: () => !this.props.readOnly,
       });
+
+      // NodeView will not automatically render when editable changes so we must trigger an update
+      // manually, see: https://discuss.prosemirror.net/t/re-render-custom-nodeview-when-view-editable-changes/6441
+      Array.from(this.renderers).forEach((view) =>
+        view.setProp("isEditable", !this.props.readOnly)
+      );
     }
 
     if (this.props.scrollTo && this.props.scrollTo !== prevProps.scrollTo) {
@@ -283,6 +295,7 @@ export class Editor extends React.PureComponent<
     window.removeEventListener("theme-changed", this.dispatchThemeChanged);
     this.view?.destroy();
     this.mutationObserver?.disconnect();
+    this.handleEditorDestroy();
   }
 
   private init() {
@@ -482,6 +495,8 @@ export class Editor extends React.PureComponent<
           self.handleChange();
         }
 
+        self.handleEditorInit();
+
         self.calculateDir();
 
         // Because Prosemirror and React are not linked we must tell React that
@@ -601,20 +616,6 @@ export class Editor extends React.PureComponent<
     );
 
   /**
-   * Undo the last change in the editor.
-   *
-   * @returns True if the undo was successful
-   */
-  public undo = () => undo(this.view.state, this.view.dispatch, this.view);
-
-  /**
-   * Redo the last change in the editor.
-   *
-   * @returns True if the change was successful
-   */
-  public redo = () => redo(this.view.state, this.view.dispatch, this.view);
-
-  /**
    * Returns true if the trimmed content of the editor is an empty string.
    *
    * @returns True if the editor is empty
@@ -682,7 +683,10 @@ export class Editor extends React.PureComponent<
    * @param commentId The id of the comment to remove
    * @param attrs The attributes to update
    */
-  public updateComment = (commentId: string, attrs: { resolved: boolean }) => {
+  public updateComment = (
+    commentId: string,
+    attrs: { resolved?: boolean; draft?: boolean }
+  ) => {
     const { state, dispatch } = this.view;
     const tr = state.tr;
 
@@ -717,11 +721,7 @@ export class Editor extends React.PureComponent<
    */
   public getPlainText = () => {
     const { doc } = this.view.state;
-    const textSerializers = Object.fromEntries(
-      Object.entries(this.schema.nodes)
-        .filter(([, node]) => node.spec.toPlainText)
-        .map(([name, node]) => [name, node.spec.toPlainText])
-    );
+    const textSerializers = getTextSerializers(this.schema);
 
     return textBetween(doc, 0, doc.content.size, textSerializers);
   };
@@ -738,6 +738,22 @@ export class Editor extends React.PureComponent<
     this.props.onChange((asString = true, trim = false) =>
       this.view ? this.value(asString, trim) : undefined
     );
+  };
+
+  private handleEditorInit = () => {
+    if (!this.props.onInit || this.isInitialized) {
+      return;
+    }
+
+    this.props.onInit();
+    this.isInitialized = true;
+  };
+
+  private handleEditorDestroy = () => {
+    if (!this.props.onDestroy) {
+      return;
+    }
+    this.props.onDestroy();
   };
 
   private handleEditorBlur = () => {
@@ -785,7 +801,7 @@ export class Editor extends React.PureComponent<
   };
 
   public render() {
-    const { dir, readOnly, canUpdate, grow, style, className, onKeyDown } =
+    const { readOnly, canUpdate, grow, style, className, onKeyDown } =
       this.props;
     const { isRTL } = this.state;
 
@@ -802,7 +818,6 @@ export class Editor extends React.PureComponent<
             column
           >
             <EditorContainer
-              dir={dir}
               rtl={isRTL}
               grow={grow}
               readOnly={readOnly}
@@ -840,7 +855,11 @@ export class Editor extends React.PureComponent<
               Object.values(this.widgets).map((Widget, index) => (
                 <Widget key={String(index)} rtl={isRTL} readOnly={readOnly} />
               ))}
-            {Array.from(this.renderers).map((view) => view.content)}
+            <Observer>
+              {() => (
+                <>{Array.from(this.renderers).map((view) => view.content)}</>
+              )}
+            </Observer>
           </Flex>
         </EditorContext.Provider>
       </PortalContext.Provider>

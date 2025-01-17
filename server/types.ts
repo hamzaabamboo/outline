@@ -49,8 +49,8 @@ export type AuthenticationResult = AccountProvisionerResult & {
 
 export type Authentication = {
   user: User;
-  token: string;
-  type: AuthenticationType;
+  token?: string;
+  type?: AuthenticationType;
 };
 
 export type Pagination = {
@@ -77,18 +77,26 @@ export interface APIContext<ReqT = BaseReq, ResT = BaseRes>
     DefaultContext & IRouterParamContext<AppState>,
     ResT
   > {
-  /** Typed and validated version of request, consisting of validated body, query, etc */
+  /** Typed and validated version of request, consisting of validated body, query, etc. */
   input: ReqT;
+
+  /** The current request's context, which is passed to database mutations. */
+  context: {
+    transaction?: Transaction;
+    auth: Authentication;
+    ip?: string;
+  };
 }
 
 type BaseEvent<T extends Model> = {
   teamId: string;
   actorId: string;
-  ip: string;
+  ip: string | null;
+  authType?: AuthenticationType | null;
   changes?: {
     attributes: Partial<InferAttributes<T>>;
     previous: Partial<InferAttributes<T>>;
-  };
+  } | null;
 };
 
 export type ApiKeyEvent = BaseEvent<ApiKey> & {
@@ -265,7 +273,7 @@ export type CollectionGroupEvent = BaseEvent<GroupMembership> & {
   name: "collections.add_group" | "collections.remove_group";
   collectionId: string;
   modelId: string;
-  data: { name: string; membershipId: string };
+  data: { membershipId: string };
 };
 
 export type DocumentUserEvent = BaseEvent<UserMembership> & {
@@ -285,9 +293,7 @@ export type DocumentGroupEvent = BaseEvent<GroupMembership> & {
   documentId: string;
   modelId: string;
   data: {
-    name: string;
     isNew?: boolean;
-    permission?: DocumentPermission;
     membershipId: string;
   };
 };
@@ -335,9 +341,6 @@ export type GroupUserEvent = BaseEvent<UserMembership> & {
   name: "groups.add_user" | "groups.remove_user";
   userId: string;
   modelId: string;
-  data: {
-    name: string;
-  };
 };
 
 export type GroupEvent = BaseEvent<Group> &
@@ -346,9 +349,6 @@ export type GroupEvent = BaseEvent<Group> &
     | {
         name: "groups.create" | "groups.delete" | "groups.update";
         modelId: string;
-        data: {
-          name: string;
-        };
       }
   );
 
@@ -378,6 +378,15 @@ export type CommentUpdateEvent = BaseEvent<Comment> & {
   };
 };
 
+export type CommentReactionEvent = BaseEvent<Comment> & {
+  name: "comments.add_reaction" | "comments.remove_reaction";
+  modelId: string;
+  documentId: string;
+  data: {
+    emoji: string;
+  };
+};
+
 export type CommentEvent =
   | (BaseEvent<Comment> & {
       name: "comments.create";
@@ -392,7 +401,8 @@ export type CommentEvent =
       documentId: string;
       actorId: string;
       collectionId: string;
-    });
+    })
+  | CommentReactionEvent;
 
 export type StarEvent = BaseEvent<Star> & {
   name: "stars.create" | "stars.update" | "stars.delete";
@@ -406,9 +416,6 @@ export type ShareEvent = BaseEvent<Share> & {
   modelId: string;
   documentId: string;
   collectionId?: string;
-  data: {
-    name: string;
-  };
 };
 
 export type SubscriptionEvent = BaseEvent<Subscription> & {

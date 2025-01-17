@@ -92,19 +92,13 @@ router.post(
 
     await collection.save({ transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.create",
-        collectionId: collection.id,
-        data: {
-          name,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.create",
+      collectionId: collection.id,
+      data: {
+        name,
       },
-      {
-        transaction,
-      }
-    );
+    });
     // we must reload the collection to get memberships for policy presenter
     const reloaded = await Collection.scope({
       method: ["withMembership", user.id],
@@ -171,7 +165,6 @@ router.post(
   async (ctx: APIContext<T.CollectionsImportReq>) => {
     const { transaction } = ctx.state;
     const { attachmentId, permission, format } = ctx.input.body;
-
     const { user } = ctx.state.auth;
     authorize(user, "importCollection", user.team);
 
@@ -180,37 +173,18 @@ router.post(
     });
     authorize(user, "read", attachment);
 
-    const fileOperation = await FileOperation.create(
-      {
-        type: FileOperationType.Import,
-        state: FileOperationState.Creating,
-        format,
-        size: attachment.size,
-        key: attachment.key,
-        userId: user.id,
-        teamId: user.teamId,
-        options: {
-          permission,
-        },
+    await FileOperation.createWithCtx(ctx, {
+      type: FileOperationType.Import,
+      state: FileOperationState.Creating,
+      format,
+      size: attachment.size,
+      key: attachment.key,
+      userId: user.id,
+      teamId: user.teamId,
+      options: {
+        permission,
       },
-      {
-        transaction,
-      }
-    );
-
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "fileOperations.create",
-        modelId: fileOperation.id,
-        data: {
-          type: FileOperationType.Import,
-        },
-      },
-      {
-        transaction,
-      }
-    );
+    });
 
     ctx.body = {
       success: true,
@@ -237,42 +211,30 @@ router.post(
     authorize(user, "update", collection);
     authorize(user, "read", group);
 
-    const [membership] = await GroupMembership.findOrCreate({
-      where: {
-        collectionId: id,
-        groupId,
-      },
-      defaults: {
-        permission,
-        createdById: user.id,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-
-    membership.permission = permission;
-    await membership.save({ transaction });
-
-    await Event.createFromContext(
+    const [membership, created] = await GroupMembership.findOrCreateWithCtx(
       ctx,
       {
-        name: "collections.add_group",
-        collectionId: collection.id,
-        modelId: groupId,
-        data: {
-          name: group.name,
-          membershipId: membership.id,
+        where: {
+          collectionId: id,
+          groupId,
         },
-      },
-      { transaction }
+        defaults: {
+          permission,
+          createdById: user.id,
+        },
+        lock: transaction.LOCK.UPDATE,
+      }
     );
+
+    if (!created) {
+      membership.permission = permission;
+      await membership.saveWithCtx(ctx);
+    }
 
     const groupMemberships = [presentGroupMembership(membership)];
 
     ctx.body = {
       data: {
-        // `collectionGroupMemberships` retained for backwards compatibility – remove after version v0.79.0
-        collectionGroupMemberships: groupMemberships,
         groupMemberships,
       },
     };
@@ -311,26 +273,7 @@ router.post(
       ctx.throw(400, "This Group is not a part of the collection");
     }
 
-    await GroupMembership.destroy({
-      where: {
-        collectionId: id,
-        groupId,
-      },
-      transaction,
-    });
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.remove_group",
-        collectionId: collection.id,
-        modelId: groupId,
-        data: {
-          name: group.name,
-          membershipId: membership.id,
-        },
-      },
-      { transaction }
-    );
+    await membership.destroyWithCtx(ctx);
 
     ctx.body = {
       success: true,
@@ -396,8 +339,6 @@ router.post(
     ctx.body = {
       pagination: { ...ctx.state.pagination, total },
       data: {
-        // `collectionGroupMemberships` retained for backwards compatibility – remove after version v0.79.0
-        collectionGroupMemberships: groupMemberships,
         groupMemberships,
         groups: await Promise.all(
           memberships.map((membership) => presentGroup(membership.group))
@@ -445,22 +386,16 @@ router.post(
       await membership.save({ transaction });
     }
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.add_user",
-        userId,
-        modelId: membership.id,
-        collectionId: collection.id,
-        data: {
-          isNew,
-          permission: membership.permission,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.add_user",
+      userId,
+      modelId: membership.id,
+      collectionId: collection.id,
+      data: {
+        isNew,
+        permission: membership.permission,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     ctx.body = {
       data: {
@@ -500,19 +435,15 @@ router.post(
 
     await collection.$remove("user", user, { transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.remove_user",
-        userId,
-        modelId: membership.id,
-        collectionId: collection.id,
-        data: {
-          name: user.name,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.remove_user",
+      userId,
+      modelId: membership.id,
+      collectionId: collection.id,
+      data: {
+        name: user.name,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       success: true,
@@ -590,8 +521,8 @@ router.post(
   validate(T.CollectionsExportSchema),
   transaction(),
   async (ctx: APIContext<T.CollectionsExportReq>) => {
-    const { transaction } = ctx.state;
     const { id, format, includeAttachments } = ctx.input.body;
+    const { transaction } = ctx.state;
     const { user } = ctx.state.auth;
 
     const team = await Team.findByPk(user.teamId, { transaction });
@@ -608,8 +539,7 @@ router.post(
       team,
       format,
       includeAttachments,
-      ip: ctx.request.ip,
-      transaction,
+      ctx,
     });
 
     ctx.body = {
@@ -628,9 +558,9 @@ router.post(
   validate(T.CollectionsExportAllSchema),
   transaction(),
   async (ctx: APIContext<T.CollectionsExportAllReq>) => {
-    const { transaction } = ctx.state;
     const { format, includeAttachments } = ctx.input.body;
     const { user } = ctx.state.auth;
+    const { transaction } = ctx.state;
     const team = await Team.findByPk(user.teamId, { transaction });
     authorize(user, "createExport", team);
 
@@ -639,8 +569,7 @@ router.post(
       team,
       format,
       includeAttachments,
-      ip: ctx.request.ip,
-      transaction,
+      ctx,
     });
 
     ctx.body = {
@@ -740,35 +669,23 @@ router.post(
     }
 
     await collection.save({ transaction });
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.update",
-        collectionId: collection.id,
-        data: {
-          name,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.update",
+      collectionId: collection.id,
+      data: {
+        name,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     if (privacyChanged || sharingChanged) {
-      await Event.createFromContext(
-        ctx,
-        {
-          name: "collections.permission_changed",
-          collectionId: collection.id,
-          data: {
-            privacyChanged,
-            sharingChanged,
-          },
+      await Event.createFromContext(ctx, {
+        name: "collections.permission_changed",
+        collectionId: collection.id,
+        data: {
+          privacyChanged,
+          sharingChanged,
         },
-        {
-          transaction,
-        }
-      );
+      });
     }
 
     // must reload to update collection membership for correct policy calculation
@@ -813,7 +730,9 @@ router.post(
     const { transaction } = ctx.state;
     const collectionIds = await user.collectionIds({ transaction });
 
-    const where: WhereOptions<Collection> = {
+    const where: WhereOptions<Collection> & {
+      [Op.and]: WhereOptions<Collection>[];
+    } = {
       teamId: user.teamId,
       [Op.and]: [
         {
@@ -970,18 +889,14 @@ router.post(
       }
     );
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.archive",
-        collectionId: collection.id,
-        data: {
-          name: collection.name,
-          archivedAt: collection.archivedAt,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.archive",
+      collectionId: collection.id,
+      data: {
+        name: collection.name,
+        archivedAt: collection.archivedAt,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       data: await presentCollection(ctx, collection),
@@ -1030,18 +945,14 @@ router.post(
     collection.archivedById = null;
     await collection.save({ transaction });
 
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.restore",
-        collectionId: collection.id,
-        data: {
-          name: collection.name,
-          archivedAt: collectionArchivedAt,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.restore",
+      collectionId: collection.id,
+      data: {
+        name: collection.name,
+        archivedAt: collectionArchivedAt,
       },
-      { transaction }
-    );
+    });
 
     ctx.body = {
       data: await presentCollection(ctx, collection!),
@@ -1076,19 +987,13 @@ router.post(
         transaction,
       }
     );
-    await Event.createFromContext(
-      ctx,
-      {
-        name: "collections.move",
-        collectionId: collection.id,
-        data: {
-          index,
-        },
+    await Event.createFromContext(ctx, {
+      name: "collections.move",
+      collectionId: collection.id,
+      data: {
+        index,
       },
-      {
-        transaction,
-      }
-    );
+    });
 
     ctx.body = {
       success: true,

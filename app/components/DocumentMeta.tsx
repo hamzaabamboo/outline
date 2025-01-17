@@ -202,9 +202,9 @@ const DocumentMeta: React.FC<Props> = ({
         {showCollection && collection && (
           <span>
             &nbsp;{t("in")}&nbsp;
-            <strong>
+            <Strong>
               <DocumentBreadcrumb document={document} onlyText />
-            </strong>
+            </Strong>
           </span>
         )}
         {showParentDocuments && nestedDocumentsCount > 0 && (
@@ -227,6 +227,10 @@ const DocumentMeta: React.FC<Props> = ({
     </>
   );
 };
+
+const Strong = styled.strong`
+  font-weight: 550;
+`;
 
 const Container = styled(Flex)<{ rtl?: boolean }>`
   justify-content: ${(props) => (props.rtl ? "flex-end" : "flex-start")};
