@@ -282,7 +282,7 @@ const SearchResults = styled(Scrollable)<{ $hasResults: boolean }>`
   box-shadow: ${(props) => (props.$hasResults ? s("menuShadow") : "none")};
   clip-path: inset(0px -100px -100px -100px);
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   width: 100%;
   height: auto;
   left: 0;
