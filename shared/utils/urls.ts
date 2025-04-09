@@ -66,11 +66,26 @@ export function isInternalUrl(href: string) {
  */
 export function isDocumentUrl(url: string) {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url, env.URL);
     return (
       isInternalUrl(url) &&
       (parsed.pathname.startsWith("/doc/") || parsed.pathname.startsWith("/d/"))
     );
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Returns true if the given string is a link to a collection.
+ *
+ * @param options Parsing options.
+ * @returns True if a collection, false otherwise.
+ */
+export function isCollectionUrl(url: string) {
+  try {
+    const parsed = new URL(url, env.URL);
+    return isInternalUrl(url) && parsed.pathname.startsWith("/collection/");
   } catch (err) {
     return false;
   }

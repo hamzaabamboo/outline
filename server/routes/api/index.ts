@@ -20,8 +20,10 @@ import events from "./events";
 import fileOperationsRoute from "./fileOperations";
 import groupMemberships from "./groupMemberships";
 import groups from "./groups";
+import imports from "./imports";
 import installation from "./installation";
 import integrations from "./integrations";
+import apiErrorHandler from "./middlewares/apiErrorHandler";
 import apiResponse from "./middlewares/apiResponse";
 import apiTracer from "./middlewares/apiTracer";
 import editor from "./middlewares/editor";
@@ -33,6 +35,7 @@ import searches from "./searches";
 import shares from "./shares";
 import stars from "./stars";
 import subscriptions from "./subscriptions";
+import suggestions from "./suggestions";
 import teams from "./teams";
 import urls from "./urls";
 import userMemberships from "./userMemberships";
@@ -59,6 +62,7 @@ api.use(coalesceBody());
 api.use<BaseContext, UserAgentContext>(userAgent);
 api.use(apiTracer());
 api.use(apiResponse());
+api.use(apiErrorHandler());
 api.use(editor());
 
 // Register plugin API routes before others to allow for overrides
@@ -82,6 +86,7 @@ router.use("/", searches.routes());
 router.use("/", shares.routes());
 router.use("/", stars.routes());
 router.use("/", subscriptions.routes());
+router.use("/", suggestions.routes());
 router.use("/", teams.routes());
 router.use("/", integrations.routes());
 router.use("/", notifications.routes());
@@ -93,6 +98,7 @@ router.use("/", fileOperationsRoute.routes());
 router.use("/", urls.routes());
 router.use("/", userMemberships.routes());
 router.use("/", reactions.routes());
+router.use("/", imports.routes());
 
 if (!env.isCloudHosted) {
   router.use("/", installation.routes());

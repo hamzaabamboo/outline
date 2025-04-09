@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { sanitizeUrl } from "../../utils/urls";
 import { getMarkRange } from "../queries/getMarkRange";
 import { isMarkActive } from "../queries/isMarkActive";
-import { EventType } from "../types";
 import Mark from "./Mark";
 
 const LINK_INPUT_REGEX = /\[([^[]+)]\((\S+)\)$/;
@@ -66,7 +65,7 @@ export default class Link extends Mark {
       inclusive: false,
       parseDOM: [
         {
-          tag: "a[href]",
+          tag: "a[href]:not(.embed)",
           getAttrs: (dom: HTMLElement) => ({
             href: dom.getAttribute("href"),
             title: dom.getAttribute("title"),
@@ -109,8 +108,7 @@ export default class Link extends Mark {
     return {
       "Mod-k": (state, dispatch) => {
         if (state.selection.empty) {
-          this.editor.events.emit(EventType.LinkToolbarOpen);
-          return true;
+          return false;
         }
 
         return toggleMark(type, { href: "" })(state, dispatch);
@@ -181,7 +179,10 @@ export default class Link extends Mark {
           },
           mousedown: (view: EditorView, event: MouseEvent) => {
             const target = (event.target as HTMLElement)?.closest("a");
-            if (!(target instanceof HTMLAnchorElement) || event.button !== 0) {
+            if (
+              !(target instanceof HTMLAnchorElement) ||
+              (event.button !== 0 && event.button !== 1)
+            ) {
               return false;
             }
 

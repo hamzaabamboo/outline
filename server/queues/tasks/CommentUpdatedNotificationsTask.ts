@@ -1,10 +1,10 @@
 import invariant from "invariant";
 import { Op } from "sequelize";
-import { NotificationEventType } from "@shared/types";
+import { MentionType, NotificationEventType } from "@shared/types";
 import { Comment, Document, Notification, User } from "@server/models";
 import { ProsemirrorHelper } from "@server/models/helpers/ProsemirrorHelper";
 import { CommentEvent, CommentUpdateEvent } from "@server/types";
-import { canUserAccessDocument } from "@server/utils/policies";
+import { canUserAccessDocument } from "@server/utils/permissions";
 import BaseTask, { TaskPriority } from "./BaseTask";
 
 export default class CommentUpdatedNotificationsTask extends BaseTask<CommentEvent> {
@@ -37,7 +37,8 @@ export default class CommentUpdatedNotificationsTask extends BaseTask<CommentEve
     }
 
     const mentions = ProsemirrorHelper.parseMentions(
-      ProsemirrorHelper.toProsemirror(comment.data)
+      ProsemirrorHelper.toProsemirror(comment.data),
+      { type: MentionType.User }
     ).filter((mention) => newMentionIds.includes(mention.id));
     const userIdsMentioned: string[] = [];
 
@@ -99,7 +100,9 @@ export default class CommentUpdatedNotificationsTask extends BaseTask<CommentEve
     for (const item of commentsAndReplies) {
       // Mentions:
       const proseCommentData = ProsemirrorHelper.toProsemirror(item.data);
-      const mentions = ProsemirrorHelper.parseMentions(proseCommentData);
+      const mentions = ProsemirrorHelper.parseMentions(proseCommentData, {
+        type: MentionType.User,
+      });
       const userIds = mentions.map((mention) => mention.modelId);
 
       // Comment author:

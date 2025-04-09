@@ -7,7 +7,6 @@ import {
   NavigationNode,
   Client,
   CollectionPermission,
-  DocumentPermission,
   JSONValue,
   UnfurlResourceType,
   ProsemirrorData,
@@ -36,6 +35,7 @@ import type {
   Notification,
   Share,
   GroupMembership,
+  Import,
 } from "./models";
 
 export enum AuthenticationType {
@@ -118,6 +118,10 @@ export type AttachmentEvent = BaseEvent<Attachment> &
         };
       }
     | {
+        name: "attachments.update";
+        modelId: string;
+      }
+    | {
         name: "attachments.delete";
         modelId: string;
         data: {
@@ -179,7 +183,6 @@ export type DocumentEvent = BaseEvent<Document> &
         name:
           | "documents.create"
           | "documents.publish"
-          | "documents.unpublish"
           | "documents.delete"
           | "documents.permanent_delete"
           | "documents.archive"
@@ -190,6 +193,11 @@ export type DocumentEvent = BaseEvent<Document> &
           title: string;
           source?: "import";
         };
+      }
+    | {
+        name: "documents.unpublish";
+        documentId: string;
+        collectionId: string;
       }
     | {
         name: "documents.unarchive";
@@ -265,7 +273,6 @@ export type CollectionUserEvent = BaseEvent<UserMembership> & {
   collectionId: string;
   data: {
     isNew?: boolean;
-    permission?: CollectionPermission;
   };
 };
 
@@ -282,9 +289,7 @@ export type DocumentUserEvent = BaseEvent<UserMembership> & {
   modelId: string;
   documentId: string;
   data: {
-    title: string;
     isNew?: boolean;
-    permission?: DocumentPermission;
   };
 };
 
@@ -423,6 +428,7 @@ export type SubscriptionEvent = BaseEvent<Subscription> & {
   modelId: string;
   userId: string;
   documentId: string | null;
+  collectionId: string | null;
 };
 
 export type ViewEvent = BaseEvent<View> & {
@@ -459,6 +465,17 @@ export type NotificationEvent = BaseEvent<Notification> & {
   commentId?: string;
   documentId?: string;
   collectionId?: string;
+  membershipId?: string;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ImportEvent = BaseEvent<Import<any>> & {
+  name:
+    | "imports.create"
+    | "imports.update"
+    | "imports.processed"
+    | "imports.delete";
+  modelId: string;
 };
 
 export type Event =
@@ -486,7 +503,8 @@ export type Event =
   | ViewEvent
   | WebhookSubscriptionEvent
   | NotificationEvent
-  | EmptyTrashEvent;
+  | EmptyTrashEvent
+  | ImportEvent;
 
 export type NotificationMetadata = {
   notificationId?: string;

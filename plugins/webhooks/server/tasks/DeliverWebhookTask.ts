@@ -102,6 +102,7 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
       case "api_keys.create":
       case "api_keys.delete":
       case "attachments.create":
+      case "attachments.update":
       case "attachments.delete":
       case "subscriptions.create":
       case "subscriptions.delete":
@@ -228,6 +229,12 @@ export default class DeliverWebhookTask extends BaseTask<Props> {
         await this.handleViewEvent(subscription, event);
         return;
       case "userMemberships.update":
+        // Ignored
+        return;
+      case "imports.create":
+      case "imports.update":
+      case "imports.processed":
+      case "imports.delete":
         // Ignored
         return;
       default:

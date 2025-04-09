@@ -57,6 +57,7 @@ import FileOperation from "./FileOperation";
 import Group from "./Group";
 import GroupMembership from "./GroupMembership";
 import GroupUser from "./GroupUser";
+import Import from "./Import";
 import Revision from "./Revision";
 import Star from "./Star";
 import Team from "./Team";
@@ -254,8 +255,6 @@ class Document extends ArchivableModel<
   InferAttributes<Document>,
   Partial<InferCreationAttributes<Document>>
 > {
-  static eventNamespace = "documents";
-
   @SimpleLength({
     min: 10,
     max: 10,
@@ -538,6 +537,13 @@ class Document extends ArchivableModel<
   @ForeignKey(() => FileOperation)
   @Column(DataType.UUID)
   importId: string | null;
+
+  @BelongsTo(() => Import, "apiImportId")
+  apiImport: Import<any> | null;
+
+  @ForeignKey(() => Import)
+  @Column(DataType.UUID)
+  apiImportId: string | null;
 
   @AllowNull
   @Column(DataType.JSONB)
@@ -832,7 +838,9 @@ class Document extends ArchivableModel<
     }
 
     this.content = revision.content;
-    this.text = revision.text;
+    this.text = DocumentHelper.toMarkdown(revision, {
+      includeTitle: false,
+    });
     this.title = revision.title;
     this.icon = revision.icon;
     this.color = revision.color;
@@ -983,7 +991,13 @@ class Document extends ArchivableModel<
     return false;
   };
 
-  unpublish = async (user: User) => {
+  /**
+   *
+   * @param user User who is performing the action
+   * @param options.detach Whether to detach the document from the containing collection
+   * @returns Updated document
+   */
+  unpublish = async (user: User, options: { detach: boolean }) => {
     // If the document is already a draft then calling unpublish should act like save
     if (!this.publishedAt) {
       return this.save();
@@ -1012,6 +1026,11 @@ class Document extends ArchivableModel<
     this.createdBy = user;
     this.updatedBy = user;
     this.publishedAt = null;
+
+    if (options.detach) {
+      this.collectionId = null;
+    }
+
     return this.save();
   };
 

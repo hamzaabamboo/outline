@@ -32,9 +32,9 @@ export type EmbedProps = {
 };
 
 const Img = styled(Image)`
-  border-radius: 2px;
+  border-radius: 3px;
   background: #fff;
-  box-shadow: 0 0 0 1px #fff;
+  box-shadow: 0 0 0 1px ${(props) => props.theme.divider};
   margin: 3px;
   width: 18px;
   height: 18px;
@@ -179,7 +179,9 @@ const embeds: EmbedDescriptor[] = [
   new EmbedDescriptor({
     title: "Canva",
     keywords: "design",
-    regexMatch: [/^https:\/\/(?:www\.)?canva\.com\/design\/([\/a-zA-Z0-9_]*)$/],
+    regexMatch: [
+      /^https:\/\/(?:www\.)?canva\.com\/design\/([\/a-zA-Z0-9_\-]*)$/,
+    ],
     transformMatch: (matches: RegExpMatchArray) => {
       const input = matches.input ?? matches[0];
 
@@ -321,7 +323,6 @@ const embeds: EmbedDescriptor[] = [
     regexMatch: [new RegExp("^https?://www\\.google\\.com/maps/embed\\?(.*)$")],
     transformMatch: (matches: RegExpMatchArray) => matches[0],
     icon: <Img src="/images/google-maps.png" alt="Google Maps" />,
-    visible: true,
   }),
   new EmbedDescriptor({
     title: "Google Drawings",
@@ -589,7 +590,7 @@ const embeds: EmbedDescriptor[] = [
     title: "Tldraw",
     keywords: "draw schematics diagrams",
     regexMatch: [
-      new RegExp("^https?://(beta|www|old)\\.tldraw\\.com/[rsvo]+/(.*)"),
+      new RegExp("^https?://(beta|www|old)\\.tldraw\\.com/[rsvopf]+/(.*)"),
     ],
     transformMatch: (matches: RegExpMatchArray) => matches[0],
     icon: <Img src="/images/tldraw.png" alt="Tldraw" />,

@@ -1,6 +1,7 @@
 /* eslint-disable no-irregular-whitespace */
 import { lighten, transparentize } from "polished";
 import styled, { DefaultTheme, css, keyframes } from "styled-components";
+import { hover } from "../../styles";
 import { EditorStyleHelper } from "../styles/EditorStyleHelper";
 import { videoStyle } from "./Video";
 
@@ -54,6 +55,7 @@ const mathStyle = (props: Props) => css`
     cursor: auto;
     white-space: pre-wrap;
     overflow-x: auto;
+    overflow-y: none;
   }
 
   .math-node.empty-math .math-render::before {
@@ -250,10 +252,13 @@ const codeBlockStyle = (props: Props) => css`
 `;
 
 const findAndReplaceStyle = () => css`
-  .find-result {
+  .find-result:not(:has(.mention)),
+  .find-result .mention {
     background: rgba(255, 213, 0, 0.25);
+  }
 
-    &.current-result {
+  .find-result.current-result:not(:has(.mention)),
+  .find-result.current-result .mention {
       background: rgba(255, 213, 0, 0.75);
       animation: ${pulse} 150ms 1;
     }
@@ -289,16 +294,35 @@ width: 100%;
 .mention {
   background: ${props.theme.mentionBackground};
   border-radius: 8px;
-  padding-bottom: 2px;
   padding-top: 1px;
+  padding-bottom: 1px;
   padding-left: 4px;
-  padding-right: 4px;
+  padding-right: 6px;
   font-weight: 500;
   font-size: 0.9em;
   cursor: default;
+  text-decoration: none !important;
 
-  &::before {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: bottom;
+
+  &:${hover} {
+    cursor: default;
+    background: ${props.theme.mentionHoverBackground};
+  }
+
+  &[data-type="user"] {
+    gap: 0;
+  }
+
+  &.mention-user::before {
     content: "@";
+  }
+
+  &.mention-document::before {
+    content: "+";
   }
 }
 
@@ -318,11 +342,6 @@ width: 100%;
   white-space: break-spaces;
   padding: ${props.editorStyle?.padding ?? "initial"};
   margin: ${props.editorStyle?.margin ?? "initial"};
-
-  .ProseMirror {
-    padding: 0;
-    margin: 0;
-  }
 
   & > .ProseMirror-yjs-cursor {
     display: none;
@@ -599,7 +618,6 @@ iframe.embed {
 }
 
 .column-resize-handle {
-  animation: ${fadeIn} 150ms ease-in-out;
   ${props.readOnly ? "display: none;" : ""}
   position: absolute;
   right: -1px;
@@ -673,11 +691,29 @@ img.ProseMirror-separator {
   display: none;
 }
 
+.${EditorStyleHelper.imageCaption} {
+  border: 0;
+  display: block;
+  font-style: italic;
+  font-weight: normal;
+  font-size: 13px;
+  color: ${props.theme.textSecondary};
+  padding: 8px 0 4px;
+  line-height: 16px;
+  text-align: center;
+  min-height: 1em;
+  outline: none;
+  background: none;
+  resize: none;
+  user-select: text;
+  margin: 0 auto !important;
+}
+
 .ProseMirror[contenteditable="false"] {
-  .caption {
+  .${EditorStyleHelper.imageCaption} {
     pointer-events: none;
   }
-  .caption:empty {
+  .${EditorStyleHelper.imageCaption}:empty {
     visibility: hidden;
   }
 }
@@ -1077,6 +1113,7 @@ ol {
     direction: rtl;
   }
 
+  &:has(p:dir(rtl)),
   &:dir(rtl) {
     margin: 0 ${props.staticHTML ? "0" : "-26px"} 0 0.1em;
     padding: 0 48px 0 0;

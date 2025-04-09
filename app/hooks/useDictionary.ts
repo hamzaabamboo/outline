@@ -1,6 +1,11 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
+/**
+ * Hook that provides a dictionary of translated UI strings.
+ *
+ * @returns An object containing all translated UI strings used throughout the application
+ */
 export default function useDictionary() {
   const { t } = useTranslation();
 
@@ -39,7 +44,7 @@ export default function useDictionary() {
       em: t("Italic"),
       embedInvalidLink: t("Sorry, that link won’t work for this embed type"),
       file: t("File attachment"),
-      findOrCreateDoc: `${t("Paste a link, search, or create")}…`,
+      enterLink: `${t("Enter a link")}…`,
       h1: t("Big heading"),
       h2: t("Medium heading"),
       h3: t("Small heading"),

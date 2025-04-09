@@ -17,6 +17,7 @@ import {
   RateLimitExceededError,
   RequestError,
   ServiceUnavailableError,
+  UnprocessableEntityError,
   UpdateRequiredError,
 } from "./errors";
 
@@ -36,9 +37,15 @@ const fetchWithRetry = retry(fetch);
 class ApiClient {
   baseUrl: string;
 
+  shareId?: string;
+
   constructor(options: Options = {}) {
     this.baseUrl = options.baseUrl || "/api";
   }
+
+  setShareId = (shareId: string | undefined) => {
+    this.shareId = shareId;
+  };
 
   fetch = async <T = any>(
     path: string,
@@ -50,6 +57,14 @@ class ApiClient {
     let modifiedPath;
     let urlToFetch;
     let isJson;
+
+    if (this.shareId) {
+      // add to data
+      data = {
+        ...(data || {}),
+        shareId: this.shareId,
+      };
+    }
 
     if (method === "GET") {
       if (data) {
@@ -198,6 +213,10 @@ class ApiClient {
 
     if (response.status === 503) {
       throw new ServiceUnavailableError(error.message);
+    }
+
+    if (response.status === 422) {
+      throw new UnprocessableEntityError(error.message);
     }
 
     if (response.status === 429) {

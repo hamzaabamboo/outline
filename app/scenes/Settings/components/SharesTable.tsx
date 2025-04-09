@@ -3,7 +3,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { unicodeCLDRtoBCP47 } from "@shared/utils/date";
 import Share from "~/models/Share";
-import { Avatar } from "~/components/Avatar";
+import { Avatar, AvatarSize } from "~/components/Avatar";
 import Flex from "~/components/Flex";
 import { HEADER_HEIGHT } from "~/components/Header";
 import {
@@ -34,9 +34,9 @@ export function SharesTable({ data, canManage, ...rest }: Props) {
           type: "data",
           id: "title",
           header: t("Document"),
-          accessor: (share) => share.documentTitle,
+          accessor: (share) => share.documentTitle || t("Untitled"),
           sortable: false,
-          component: (share) => <>{share.documentTitle}</>,
+          component: (share) => <>{share.documentTitle || t("Untitled")}</>,
           width: "4fr",
         },
         {
@@ -46,10 +46,10 @@ export function SharesTable({ data, canManage, ...rest }: Props) {
           accessor: (share) => share.createdBy,
           sortable: false,
           component: (share) => (
-            <Flex align="center" gap={4}>
+            <Flex align="center" gap={8}>
               {share.createdBy && (
                 <>
-                  <Avatar model={share.createdBy} />
+                  <Avatar model={share.createdBy} size={AvatarSize.Small} />
                   {share.createdBy.name}
                 </>
               )}

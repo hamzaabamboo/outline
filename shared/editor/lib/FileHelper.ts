@@ -4,21 +4,48 @@ export default class FileHelper {
   /**
    * Checks if a file is an image.
    *
-   * @param file The file to check
+   * @param contentType The content type of the file
    * @returns True if the file is an image
    */
-  static isImage(file: File) {
-    return file.type.startsWith("image/");
+  static isImage(contentType: string) {
+    return /^image\/[!#$%&'*+.^\w`|~-]+$/i.test(contentType);
   }
 
   /**
    * Checks if a file is a video.
    *
-   * @param file The file to check
+   * @param contentType The content type of the file
    * @returns True if the file is an video
    */
-  static isVideo(file: File) {
-    return file.type.startsWith("video/");
+  static isVideo(contentType: string) {
+    return /^video\/[!#$%&'*+.^\w`|~-]+$/i.test(contentType);
+  }
+
+  /**
+   * Checks if a file is an audio file.
+   *
+   * @param contentType The content type of the file
+   * @returns True if the file is an audio file
+   */
+  static isAudio(contentType: string) {
+    return /^audio\/[!#$%&'*+.^\w`|~-]+$/i.test(contentType);
+  }
+
+  /**
+   * Download a file from a URL and return it as a File object.
+   *
+   * @param url The URL to download the file from
+   * @returns The downloaded file
+   */
+  static async getFileForUrl(url: string): Promise<File> {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const fileName = (response.headers.get("content-disposition") || "").split(
+      "filename="
+    )[1];
+    return new File([blob], fileName || "file", {
+      type: blob.type,
+    });
   }
 
   /**
