@@ -19,7 +19,6 @@ import {
   Heading3Icon,
 } from "outline-icons";
 import { EditorState } from "prosemirror-state";
-import * as React from "react";
 import styled from "styled-components";
 import Highlight from "@shared/editor/marks/Highlight";
 import { getMarksBetween } from "@shared/editor/queries/getMarksBetween";
@@ -67,7 +66,7 @@ export default function formattingMenuItems(
       shortcut: `${metaDisplay}+B`,
       icon: <BoldIcon />,
       active: isMarkActive(schema.marks.strong),
-      visible: !isCode && (!isMobile || !isEmpty),
+      visible: !isCodeBlock && (!isMobile || !isEmpty),
     },
     {
       name: "em",
@@ -75,7 +74,7 @@ export default function formattingMenuItems(
       shortcut: `${metaDisplay}+I`,
       icon: <ItalicIcon />,
       active: isMarkActive(schema.marks.em),
-      visible: !isCode && (!isMobile || !isEmpty),
+      visible: !isCodeBlock && (!isMobile || !isEmpty),
     },
     {
       name: "strikethrough",
@@ -83,11 +82,11 @@ export default function formattingMenuItems(
       shortcut: `${metaDisplay}+D`,
       icon: <StrikethroughIcon />,
       active: isMarkActive(schema.marks.strikethrough),
-      visible: !isCode && (!isMobile || !isEmpty),
+      visible: !isCodeBlock && (!isMobile || !isEmpty),
     },
     {
       tooltip: dictionary.mark,
-      shortcut: `${metaDisplay}+Ctrl+H`,
+      shortcut: `${metaDisplay}+⇧+H`,
       icon: highlight ? (
         <CircleIcon color={highlight.mark.attrs.color || Highlight.colors[0]} />
       ) : (

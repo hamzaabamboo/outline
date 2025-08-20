@@ -1,6 +1,7 @@
 import JWT from "jsonwebtoken";
 import Router from "koa-router";
 import mime from "mime-types";
+import contentDisposition from "content-disposition";
 import env from "@server/env";
 import {
   AuthenticationError,
@@ -27,7 +28,7 @@ const router = new Router();
 router.post(
   "files.create",
   rateLimiter(RateLimiterStrategy.TenPerMinute),
-  auth(),
+  auth({ allowMultipart: true }),
   validate(T.FilesCreateSchema),
   multipart({
     maximumFileSize: Math.max(
@@ -78,17 +79,13 @@ router.get(
     const { isPublicBucket, fileName } = AttachmentHelper.parseKey(key);
     const skipAuthorize = isPublicBucket || isSignedRequest;
     const cacheHeader = "max-age=604800, immutable";
-
-    const attachment = await Attachment.findOne({
-      where: { key },
-    });
-
-    // Attachment is requested with a key, but it was not found
-    if (!attachment && !!ctx.input.query.key) {
-      throw NotFoundError();
-    }
+    const attachment = await Attachment.findByKey(key);
 
     if (!skipAuthorize) {
+      if (!attachment && !!ctx.input.query.key) {
+        throw NotFoundError();
+      }
+
       authorize(actor, "read", attachment);
     }
 
@@ -100,11 +97,15 @@ router.get(
     ctx.set("Accept-Ranges", "bytes");
     ctx.set("Cache-Control", cacheHeader);
     ctx.set("Content-Type", contentType);
-    ctx.attachment(fileName, {
-      type: forceDownload
-        ? "attachment"
-        : FileStorage.getContentDisposition(contentType),
-    });
+    ctx.set("Content-Security-Policy", "sandbox");
+    ctx.set(
+      "Content-Disposition",
+      contentDisposition(fileName, {
+        type: forceDownload
+          ? "attachment"
+          : FileStorage.getContentDisposition(contentType),
+      })
+    );
 
     // Handle byte range requests
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
@@ -157,7 +158,7 @@ function getKeyFromContext(ctx: APIContext<T.FilesGetReq>): string {
 
     try {
       JWT.verify(sig, env.SECRET_KEY);
-    } catch (err) {
+    } catch (_err) {
       throw AuthenticationError("Invalid signature");
     }
 

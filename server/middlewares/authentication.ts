@@ -7,7 +7,7 @@ import tracer, {
   addTags,
   getRootSpanFromRequestContext,
 } from "@server/logging/tracer";
-import { User, Team, ApiKey } from "@server/models";
+import { User, Team, ApiKey, OAuthAuthentication } from "@server/models";
 import { AppContext, AuthenticationType } from "@server/types";
 import { getUserForJWT } from "@server/utils/jwt";
 import {
@@ -20,9 +20,15 @@ type AuthenticationOptions = {
   /** Role requuired to access the route. */
   role?: UserRole;
   /** Type of authentication required to access the route. */
-  type?: AuthenticationType;
+  type?: AuthenticationType | AuthenticationType[];
   /** Authentication is parsed, but optional. */
   optional?: boolean;
+  /**
+   * Allow multipart requests with cookie authentication, otherwise
+   * the request will fail if the content type is not application/json.
+   * This is useful for file uploads where the cookie is used to authenticate.
+   */
+  allowMultipart?: boolean;
 };
 
 export default function auth(options: AuthenticationOptions = {}) {
@@ -55,6 +61,18 @@ export default function auth(options: AuthenticationOptions = {}) {
       token = ctx.request.query.token;
     } else {
       token = ctx.cookies.get("accessToken");
+
+      // check if the request is application/json encoded
+      // TODO: Enable once clients have updated
+      // if (
+      //   token &&
+      //   !ctx.request.is("application/json") &&
+      //   !options.allowMultipart
+      // ) {
+      //   throw AuthenticationError(
+      //     "Mismatched content type. Expected application/json"
+      //   );
+      // }
     }
 
     try {
@@ -65,13 +83,56 @@ export default function auth(options: AuthenticationOptions = {}) {
       let user: User | null;
       let type: AuthenticationType;
 
-      if (ApiKey.match(String(token))) {
+      if (OAuthAuthentication.match(String(token))) {
+        if (!authorizationHeader) {
+          throw AuthenticationError(
+            "OAuth access token must be passed in the Authorization header"
+          );
+        }
+
+        type = AuthenticationType.OAUTH;
+
+        let authentication;
+        try {
+          authentication = await OAuthAuthentication.findByAccessToken(token, {
+            rejectOnEmpty: true,
+          });
+        } catch (_err) {
+          throw AuthenticationError("Invalid access token");
+        }
+        if (!authentication) {
+          throw AuthenticationError("Invalid access token");
+        }
+        if (authentication.accessTokenExpiresAt < new Date()) {
+          throw AuthenticationError("Access token is expired");
+        }
+        if (!authentication.canAccess(ctx.request.url)) {
+          throw AuthenticationError(
+            "Access token does not have access to this resource"
+          );
+        }
+
+        user = await User.findByPk(authentication.userId, {
+          include: [
+            {
+              model: Team,
+              as: "team",
+              required: true,
+            },
+          ],
+        });
+        if (!user) {
+          throw AuthenticationError("Invalid access token");
+        }
+
+        await authentication.updateActiveAt();
+      } else if (ApiKey.match(String(token))) {
         type = AuthenticationType.API;
         let apiKey;
 
         try {
           apiKey = await ApiKey.findByToken(token);
-        } catch (err) {
+        } catch (_err) {
           throw AuthenticationError("Invalid API key");
         }
 
@@ -125,7 +186,12 @@ export default function auth(options: AuthenticationOptions = {}) {
         throw AuthorizationError(`${capitalize(options.role)} role required`);
       }
 
-      if (options.type && type !== options.type) {
+      if (
+        options.type &&
+        (Array.isArray(options.type)
+          ? !options.type.includes(type)
+          : type !== options.type)
+      ) {
         throw AuthorizationError(`Invalid authentication type`);
       }
 

@@ -1,5 +1,6 @@
 import commandScore from "command-score";
 import invariant from "invariant";
+// oxlint-disable-next-line lodash/import-scope
 import type { ObjectIterateeCustom } from "lodash";
 import deburr from "lodash/deburr";
 import filter from "lodash/filter";
@@ -98,12 +99,25 @@ export default abstract class Store<T extends Model> {
     const normalized = deburr((query ?? "").trim().toLocaleLowerCase());
 
     if (!normalized) {
-      return this.orderedData.slice(0, options?.maxResults);
+      return this.orderedData
+        .filter((item) => {
+          if ("deletedAt" in item && item.deletedAt) {
+            return false;
+          }
+          if ("archivedAt" in item && item.archivedAt) {
+            return false;
+          }
+          return true;
+        })
+        .slice(0, options?.maxResults);
     }
 
     return this.orderedData
       .filter((item: T & Searchable) => {
         if ("deletedAt" in item && item.deletedAt) {
+          return false;
+        }
+        if ("archivedAt" in item && item.archivedAt) {
           return false;
         }
         if ("searchContent" in item) {

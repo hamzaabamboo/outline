@@ -75,17 +75,18 @@ class ApiClient {
     } else if (method === "POST" || method === "PUT") {
       if (data instanceof FormData || typeof data === "string") {
         body = data;
-      }
-
-      // Only stringify data if its a normal object and
-      // not if it's [object FormData], in addition to
-      // toggling Content-Type to application/json
-      if (
-        typeof data === "object" &&
-        (data || "").toString() === "[object Object]"
-      ) {
+      } else {
         isJson = true;
-        body = JSON.stringify(data);
+
+        // Only stringify data if its a normal object and
+        // not if it's [object FormData], in addition to
+        // toggling Content-Type to application/json
+        if (
+          typeof data === "object" &&
+          (data || "").toString() === "[object Object]"
+        ) {
+          body = JSON.stringify(data);
+        }
       }
     }
 
@@ -127,7 +128,7 @@ class ApiClient {
           cache: "no-cache",
         }
       );
-    } catch (err) {
+    } catch (_err) {
       if (window.navigator.onLine) {
         throw new NetworkError("A network error occurred, try again?");
       } else {
@@ -153,7 +154,12 @@ class ApiClient {
 
     // Handle 401, log out user
     if (response.status === 401) {
-      await stores.auth.logout(true, false);
+      if (!this.shareId) {
+        await stores.auth.logout({
+          savePath: true,
+          revokeToken: false,
+        });
+      }
       throw new AuthorizationError();
     }
 
@@ -201,7 +207,10 @@ class ApiClient {
 
     if (response.status === 403) {
       if (error.error === "user_suspended") {
-        await stores.auth.logout(false, false);
+        await stores.auth.logout({
+          savePath: false,
+          revokeToken: false,
+        });
       }
 
       throw new AuthorizationError(error.message);

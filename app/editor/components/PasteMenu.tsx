@@ -1,7 +1,16 @@
-import { LinkIcon } from "outline-icons";
+import { observer } from "mobx-react";
+import { EmailIcon, LinkIcon } from "outline-icons";
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { v4 } from "uuid";
 import { EmbedDescriptor } from "@shared/editor/embeds";
+import { MenuItem } from "@shared/editor/types";
+import { MentionType } from "@shared/types";
+import { isUrl } from "@shared/utils/urls";
+import Integration from "~/models/Integration";
+import useCurrentUser from "~/hooks/useCurrentUser";
+import useStores from "~/hooks/useStores";
+import { determineMentionType, isURLMentionable } from "~/utils/mention";
 import SuggestionsMenu, {
   Props as SuggestionsMenuProps,
 } from "./SuggestionsMenu";
@@ -11,39 +20,17 @@ type Props = Omit<
   SuggestionsMenuProps,
   "renderMenuItem" | "items" | "embeds" | "trigger"
 > & {
-  pastedText: string;
+  pastedText: string | string[];
   embeds: EmbedDescriptor[];
 };
 
-const PasteMenu = ({ embeds, ...props }: Props) => {
-  const { t } = useTranslation();
+export const PasteMenu = observer(({ pastedText, embeds, ...props }: Props) => {
+  const items = useItems({ pastedText, embeds });
 
-  const embed = React.useMemo(() => {
-    for (const e of embeds) {
-      const matches = e.matcher(props.pastedText);
-      if (matches) {
-        return e;
-      }
-    }
-    return;
-  }, [embeds, props.pastedText]);
-
-  const items = React.useMemo(
-    () => [
-      {
-        name: "noop",
-        title: t("Keep as link"),
-        icon: <LinkIcon />,
-      },
-      {
-        name: "embed",
-        title: t("Embed"),
-        icon: embed?.icon,
-        keywords: embed?.keywords,
-      },
-    ],
-    [embed, t]
-  );
+  if (!items) {
+    props.onClose();
+    return null;
+  }
 
   return (
     <SuggestionsMenu
@@ -52,9 +39,7 @@ const PasteMenu = ({ embeds, ...props }: Props) => {
       filterable={false}
       renderMenuItem={(item, _index, options) => (
         <SuggestionsMenuItem
-          onClick={() => {
-            props.onSelect?.(item);
-          }}
+          onClick={options.onClick}
           selected={options.selected}
           title={item.title}
           icon={item.icon}
@@ -63,6 +48,112 @@ const PasteMenu = ({ embeds, ...props }: Props) => {
       items={items}
     />
   );
-};
+});
 
-export default PasteMenu;
+function useItems({
+  pastedText,
+  embeds,
+}: Pick<Props, "pastedText" | "embeds">): MenuItem[] | undefined {
+  const { t } = useTranslation();
+  const { integrations } = useStores();
+  const user = useCurrentUser({ rejectOnEmpty: false });
+
+  const embed = React.useMemo(() => {
+    if (typeof pastedText === "string") {
+      for (const e of embeds) {
+        const matches = e.matcher(pastedText);
+        if (matches) {
+          return e;
+        }
+      }
+    }
+    return;
+  }, [embeds, pastedText]);
+
+  // single item is pasted.
+  if (typeof pastedText === "string") {
+    let mentionType: MentionType | undefined;
+
+    if (pastedText && isUrl(pastedText)) {
+      const url = new URL(pastedText);
+      const integration = integrations.find((intg: Integration) =>
+        isURLMentionable({ url, integration: intg })
+      );
+
+      mentionType = integration
+        ? determineMentionType({ url, integration })
+        : undefined;
+    }
+
+    return [
+      {
+        name: "noop",
+        title: t("Keep as link"),
+        icon: <LinkIcon />,
+      },
+      {
+        name: "mention",
+        title: t("Mention"),
+        icon: <EmailIcon />,
+        visible: !!mentionType,
+        attrs: {
+          id: v4(),
+          type: mentionType,
+          label: pastedText,
+          href: pastedText,
+          modelId: v4(),
+          actorId: user?.id,
+        },
+        appendSpace: true,
+      },
+      {
+        name: "embed",
+        title: t("Embed"),
+        icon: embed?.icon,
+        keywords: embed?.keywords,
+      },
+    ];
+  }
+  const linksToMentionType: Record<string, MentionType> = {};
+
+  // list is pasted.
+  const convertibleToMentionList = pastedText.every((text) => {
+    if (!isUrl(text)) {
+      return false;
+    }
+
+    const url = new URL(text);
+    const integration = integrations.find((intg: Integration) =>
+      isURLMentionable({ url, integration: intg })
+    );
+
+    const mentionType = integration
+      ? determineMentionType({ url, integration })
+      : undefined;
+
+    if (mentionType) {
+      linksToMentionType[text] = mentionType;
+    }
+
+    return !!mentionType;
+  });
+
+  // don't render the menu when it can't be converted to mention.
+  if (!convertibleToMentionList) {
+    return;
+  }
+
+  return [
+    {
+      name: "noop",
+      title: t("Keep as link"),
+      icon: <LinkIcon />,
+    },
+    {
+      name: "mention_list",
+      title: t("Mention"),
+      icon: <EmailIcon />,
+      attrs: { actorId: user?.id, ...linksToMentionType },
+    },
+  ];
+}

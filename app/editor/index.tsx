@@ -195,7 +195,7 @@ export class Editor extends React.PureComponent<
   };
 
   widgets: { [name: string]: (props: WidgetProps) => React.ReactElement };
-  renderers: Set<NodeViewRenderer<ComponentProps>> = observable.set();
+  renderers = observable.set<NodeViewRenderer<ComponentProps>>();
   nodes: { [name: string]: NodeSpec };
   marks: { [name: string]: MarkSpec };
   commands: Record<string, CommandFactory>;
@@ -448,7 +448,7 @@ export class Editor extends React.PureComponent<
           step.mark.type.name === this.schema.marks.comment.name
       );
 
-    const self = this; // eslint-disable-line
+    const self = this; // oxlint-disable-line
     const view = new EditorView(this.elementRef.current, {
       handleDOMEvents: {
         blur: this.handleEditorBlur,
@@ -504,16 +504,28 @@ export class Editor extends React.PureComponent<
       return;
     }
 
+    function isVisible(element: HTMLElement | null) {
+      for (let e = element; e; e = e.parentElement) {
+        const s = getComputedStyle(e);
+        if (s.display === "none" || s.opacity === "0") {
+          return false;
+        }
+      }
+      return true;
+    }
+
     try {
       this.mutationObserver?.disconnect();
       this.mutationObserver = observe(
         hash,
         (element) => {
-          element.scrollIntoView();
+          if (isVisible(element)) {
+            element.scrollIntoView();
+          }
         },
         this.elementRef.current || undefined
       );
-    } catch (err) {
+    } catch (_err) {
       // querySelector will throw an error if the hash begins with a number
       // or contains a period. This is protected against now by safeSlugify
       // however previous links may be in the wild.
@@ -796,6 +808,7 @@ export class Editor extends React.PureComponent<
               focusedCommentId={this.props.focusedCommentId}
               userId={this.props.userId}
               editorStyle={this.props.editorStyle}
+              commenting={!!this.props.onClickCommentMark}
               ref={this.elementRef}
               lang=""
             />

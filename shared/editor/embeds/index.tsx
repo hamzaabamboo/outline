@@ -1,3 +1,4 @@
+import { BrowserIcon } from "outline-icons";
 import * as React from "react";
 import styled from "styled-components";
 import { Primitive } from "utility-types";
@@ -190,8 +191,8 @@ const embeds: EmbedDescriptor[] = [
         const params = new URLSearchParams(url.search);
         params.append("embed", "");
         return `${url.origin}${url.pathname}?${params.toString()}`;
-      } catch (e) {
-        //
+      } catch (_err) {
+        // Ignore
       }
 
       return input;
@@ -425,8 +426,8 @@ const embeds: EmbedDescriptor[] = [
 
         params.append("embed", "true");
         return `${url.origin}${url.pathname}?${params.toString()}`;
-      } catch (e) {
-        //
+      } catch (_err) {
+        // Ignore
       }
 
       return input;
@@ -587,6 +588,16 @@ const embeds: EmbedDescriptor[] = [
     component: Spotify,
   }),
   new EmbedDescriptor({
+    title: "Tella",
+    keywords: "video",
+    regexMatch: [/^https?:\/\/(?:www\.)?tella\.tv\/video\/([^\/]+)(?:.*)?$/],
+    transformMatch: (matches: RegExpMatchArray) =>
+      `https://www.tella.tv/video/${matches[1]}/embed?b=0&title=1&a=0&loop=0&t=0&muted=0&wt=1`,
+    icon: <Img src="/images/tella.png" alt="Tella" />,
+    defaultHidden: true,
+    hideToolbar: true,
+  }),
+  new EmbedDescriptor({
     title: "Tldraw",
     keywords: "draw schematics diagrams",
     regexMatch: [
@@ -675,7 +686,7 @@ const embeds: EmbedDescriptor[] = [
     title: "Embed",
     keywords: "iframe webpage",
     placeholder: "Paste a URL to embed",
-    icon: <Img src="/images/embed.png" alt="Embed" />,
+    icon: <BrowserIcon />,
     defaultHidden: false,
     matchOnInput: false,
     regexMatch: [new RegExp("^https?://(.*)$")],
