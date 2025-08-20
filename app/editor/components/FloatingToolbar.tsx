@@ -12,7 +12,7 @@ import { HEADER_HEIGHT } from "~/components/Header";
 import { Portal } from "~/components/Portal";
 import useEventListener from "~/hooks/useEventListener";
 import useMobile from "~/hooks/useMobile";
-// import useWindowSize from "~/hooks/useWindowSize";
+import useWindowSize from "~/hooks/useWindowSize";
 import Logger from "~/utils/Logger";
 import { useEditor } from "./EditorContext";
 
@@ -233,7 +233,7 @@ const FloatingToolbar = React.forwardRef(function FloatingToolbar_(
   });
 
   const isMobile = useMobile();
-  // const { height } = useWindowSize();
+  const { height } = useWindowSize();
 
   if (isMobile) {
     if (!props.children) {

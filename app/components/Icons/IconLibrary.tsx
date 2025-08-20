@@ -63,7 +63,7 @@ export class IconLibrary {
    * @param icon The name of the icon
    * @returns The component for the icon
    */
-  public static getComponent(icon: string) {
+  public static getComponent(icon: keyof typeof this.mapping) {
     return this.mapping[icon].component;
   }
 
@@ -74,7 +74,7 @@ export class IconLibrary {
    * @returns The name of the icon that matches the keyword, or undefined if no match is found
    */
   public static findIconByKeyword(keyword: string) {
-    const keys = Object.keys(this.mapping);
+    const keys = Object.keys(this.mapping) as (keyof typeof this.mapping)[];
 
     for (const key of keys) {
       const icon = this.mapping[key];
