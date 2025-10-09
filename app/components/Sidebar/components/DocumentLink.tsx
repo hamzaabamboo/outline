@@ -35,6 +35,8 @@ import { SidebarContextType, useSidebarContext } from "./SidebarContext";
 import SidebarLink from "./SidebarLink";
 import UserMembership from "~/models/UserMembership";
 import GroupMembership from "~/models/GroupMembership";
+import { ActionContextProvider } from "~/hooks/useActionContext";
+import { useDocumentMenuAction } from "~/hooks/useDocumentMenuAction";
 
 type Props = {
   node: NavigationNode;
@@ -316,8 +318,14 @@ function InnerDocumentLink(
     ]
   );
 
+  const contextMenuAction = useDocumentMenuAction({ documentId: node.id });
+
   return (
-    <>
+    <ActionContextProvider
+      value={{
+        activeDocumentId: node.id,
+      }}
+    >
       <Relative ref={parentRef}>
         <Draggable
           key={node.id}
@@ -334,6 +342,7 @@ function InnerDocumentLink(
                 expanded={hasChildren ? isExpanded : undefined}
                 onDisclosureClick={handleDisclosureClick}
                 onClickIntent={handlePrefetch}
+                contextAction={contextMenuAction}
                 to={toPath}
                 icon={iconElement}
                 label={
@@ -364,7 +373,6 @@ function InnerDocumentLink(
                       {can.createChildDocument && (
                         <Tooltip content={t("New doc")}>
                           <NudeButton
-                            type={undefined}
                             aria-label={t("New nested document")}
                             onClick={(ev) => {
                               ev.preventDefault();
@@ -426,7 +434,7 @@ function InnerDocumentLink(
           />
         ))}
       </Folder>
-    </>
+    </ActionContextProvider>
   );
 }
 

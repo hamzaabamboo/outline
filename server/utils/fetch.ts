@@ -49,17 +49,20 @@ export const chromeUserAgent =
  */
 export default async function fetch(
   url: string,
-  init?: RequestInit
+  init?: RequestInit & {
+    allowPrivateIPAddress?: boolean;
+  }
 ): Promise<Response> {
   Logger.silly("http", `Network request to ${url}`, init);
 
+  const { allowPrivateIPAddress, ...rest } = init || {};
   const response = await nodeFetch(url, {
-    ...init,
+    ...rest,
     headers: {
       "User-Agent": outlineUserAgent,
-      ...init?.headers,
+      ...rest?.headers,
     },
-    agent: buildAgent(url),
+    agent: buildAgent(url, init),
   });
 
   if (!response.ok) {
@@ -136,11 +139,22 @@ const buildTunnel = (proxy: UrlWithTunnel, options: RequestInit) => {
  * @param options The fetch options
  * @returns An http or https agent configured for the URL
  */
-function buildAgent(url: string, options: RequestInit = {}) {
+function buildAgent(
+  url: string,
+  options: RequestInit & {
+    allowPrivateIPAddress?: boolean;
+  } = {}
+) {
   const agentOptions = defaults(options, DefaultOptions);
   const parsedURL = new URL(url);
   const proxyURL = getProxyForUrl(parsedURL.href);
   let agent: https.Agent | http.Agent | undefined;
+
+  // Add allowIPAddressList from environment configuration
+  const filteringOptions = {
+    ...agentOptions,
+    allowIPAddressList: env.ALLOWED_PRIVATE_IP_ADDRESSES,
+  };
 
   if (proxyURL) {
     const parsedProxyURL = parseProxy(parsedURL, proxyURL);
@@ -163,15 +177,15 @@ function buildAgent(url: string, options: RequestInit = {}) {
         proxyURL.username = parsedProxyURL.username;
         proxyURL.password = parsedProxyURL.password;
       }
-      agent = useFilteringAgent(proxyURL.toString(), agentOptions);
+      agent = useFilteringAgent(proxyURL.toString(), filteringOptions);
     } else {
       // Note request filtering agent does not support https tunneling via a proxy
       agent =
         buildTunnel(parsedProxyURL, agentOptions) ||
-        useFilteringAgent(parsedURL.toString(), agentOptions);
+        useFilteringAgent(parsedURL.toString(), filteringOptions);
     }
   } else {
-    agent = useFilteringAgent(parsedURL.toString(), agentOptions);
+    agent = useFilteringAgent(parsedURL.toString(), filteringOptions);
   }
 
   if (options.signal) {

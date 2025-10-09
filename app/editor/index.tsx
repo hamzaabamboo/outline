@@ -35,7 +35,6 @@ import Extension, {
 import ExtensionManager from "@shared/editor/lib/ExtensionManager";
 import { MarkdownSerializer } from "@shared/editor/lib/markdown/serializer";
 import textBetween from "@shared/editor/lib/textBetween";
-import { getTextSerializers } from "@shared/editor/lib/textSerializers";
 import Mark from "@shared/editor/marks/Mark";
 import { basicExtensions as extensions } from "@shared/editor/nodes";
 import Node from "@shared/editor/nodes/Node";
@@ -55,6 +54,13 @@ import EditorContext from "./components/EditorContext";
 import { NodeViewRenderer } from "./components/NodeViewRenderer";
 import SelectionToolbar from "./components/SelectionToolbar";
 import WithTheme from "./components/WithTheme";
+import isNull from "lodash/isNull";
+import { map } from "lodash";
+import {
+  LightboxImage,
+  LightboxImageFactory,
+} from "@shared/editor/lib/Lightbox";
+import Lightbox from "~/components/Lightbox";
 
 export type Props = {
   /** An optional identifier for the editor context. It is used to persist local settings */
@@ -146,6 +152,8 @@ type State = {
   isEditorFocused: boolean;
   /** If the toolbar for a text selection is visible */
   selectionToolbarOpen: boolean;
+  /** Image that's being currently viewed in Lightbox */
+  activeLightboxImage: LightboxImage | null;
 };
 
 /**
@@ -175,6 +183,7 @@ export class Editor extends React.PureComponent<
     isRTL: false,
     isEditorFocused: false,
     selectionToolbarOpen: false,
+    activeLightboxImage: null,
   };
 
   isInitialized = false;
@@ -495,6 +504,7 @@ export class Editor extends React.PureComponent<
 
     // Tell third-party libraries and screen-readers that this is an input
     view.dom.setAttribute("role", "textbox");
+    view.dom.setAttribute("aria-label", "Editor content");
 
     return view;
   }
@@ -627,8 +637,7 @@ export class Editor extends React.PureComponent<
    *
    * @returns A list of headings in the document
    */
-  public getHeadings = () =>
-    ProsemirrorHelper.getHeadings(this.view.state.doc, this.schema);
+  public getHeadings = () => ProsemirrorHelper.getHeadings(this.view.state.doc);
 
   /**
    * Return the images in the current editor.
@@ -636,6 +645,16 @@ export class Editor extends React.PureComponent<
    * @returns A list of images in the document
    */
   public getImages = () => ProsemirrorHelper.getImages(this.view.state.doc);
+
+  public getLightboxImages = (): LightboxImage[] => {
+    const lightboxNodes = ProsemirrorHelper.getLightboxNodes(
+      this.view.state.doc
+    );
+
+    return map(lightboxNodes, (node) =>
+      LightboxImageFactory.createLightboxImage(this.view, node.pos)
+    );
+  };
 
   /**
    * Return the tasks/checkmarks in the current editor.
@@ -714,6 +733,13 @@ export class Editor extends React.PureComponent<
     dispatch(tr);
   };
 
+  public updateActiveLightboxImage = (activeImage: LightboxImage | null) => {
+    this.setState((state) => ({
+      ...state,
+      activeLightboxImage: activeImage,
+    }));
+  };
+
   /**
    * Return the plain text content of the current editor.
    *
@@ -721,9 +747,8 @@ export class Editor extends React.PureComponent<
    */
   public getPlainText = () => {
     const { doc } = this.view.state;
-    const textSerializers = getTextSerializers(this.schema);
 
-    return textBetween(doc, 0, doc.content.size, textSerializers);
+    return textBetween(doc, 0, doc.content.size);
   };
 
   private dispatchThemeChanged = (event: CustomEvent) => {
@@ -834,6 +859,14 @@ export class Editor extends React.PureComponent<
               )}
             </Observer>
           </Flex>
+          {!isNull(this.state.activeLightboxImage) && (
+            <Lightbox
+              images={this.getLightboxImages()}
+              activeImage={this.state.activeLightboxImage}
+              onUpdate={this.updateActiveLightboxImage}
+              onClose={() => this.view.focus()}
+            />
+          )}
         </EditorContext.Provider>
       </PortalContext.Provider>
     );
