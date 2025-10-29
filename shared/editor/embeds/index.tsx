@@ -21,6 +21,7 @@ import Trello from "./Trello";
 import Twitter from "./Twitter";
 import Vimeo from "./Vimeo";
 import YouTube from "./YouTube";
+import PlantUmlDiagrams from "./PlantUml";
 
 export type EmbedProps = {
   isSelected: boolean;
@@ -686,6 +687,15 @@ const embeds: EmbedDescriptor[] = [
     ],
     icon: <Img src="/images/twitter.png" alt="Twitter" />,
     component: Twitter,
+  }),
+  new EmbedDescriptor({
+    title: "Plant UML",
+    keywords: "plant plantuml uml",
+    regexMatch: [
+      /(?:https?:\/\/)?(?:www\.)?editor\.plantuml\.com\/uml\/([a-zA-Z0-9\-_]+)([\&\?].*)?$/i,
+    ],
+    icon: <Img src="/images/plantuml.png" alt="PlantUml" />,
+    component: PlantUmlDiagrams,
   }),
   /* The generic iframe embed should always be the last one */
   new EmbedDescriptor({

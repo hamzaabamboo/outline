@@ -51,7 +51,6 @@ const mathStyle = (props: Props) => css`
   .math-node {
     min-width: 1em;
     min-height: 1em;
-    font-size: 0.95em;
     font-family: ${props.theme.fontFamilyMono};
     cursor: auto;
     white-space: pre-wrap;
@@ -96,7 +95,6 @@ const mathStyle = (props: Props) => css`
 
   math-inline .math-render {
     display: inline-block;
-    font-size: 0.85em;
   }
 
   math-inline .math-src .ProseMirror {
@@ -483,7 +481,7 @@ iframe.embed {
   width: 100%;
   height: 400px;
   border: 1px solid ${props.theme.embedBorder};
-  border-radius: 6px;
+  border-radius: ${EditorStyleHelper.blockRadius};
 }
 
 .image,
@@ -733,7 +731,7 @@ img.ProseMirror-separator {
   }
 }
 
-.heading-name {
+.${EditorStyleHelper.headingPositionAnchor}, .${EditorStyleHelper.imagePositionAnchor} {
   color: ${props.theme.text};
   pointer-events: none;
   display: block;
@@ -746,11 +744,11 @@ img.ProseMirror-separator {
   }
 }
 
-.heading-name:first-child,
+.${EditorStyleHelper.headingPositionAnchor}:first-child,
 // Edge case where multiplayer cursor is between start of cell and heading
-.heading-name:first-child + .ProseMirror-yjs-cursor,
+.${EditorStyleHelper.headingPositionAnchor}:first-child + .ProseMirror-yjs-cursor,
 // Edge case where table grips are between start of cell and heading
-.heading-name:first-child + [role=button] + [role=button] {
+.${EditorStyleHelper.headingPositionAnchor}:first-child + [role=button] + [role=button] {
   & + h1,
   & + h2,
   & + h3,
@@ -1443,7 +1441,7 @@ mark {
   margin: 0.75em 0;
   min-height: 1.6em;
   background: ${props.theme.codeBackground};
-  border-radius: 6px;
+  border-radius: ${EditorStyleHelper.blockRadius};
   border: 1px solid ${props.theme.codeBorder};
   padding: 8px;
   user-select: none;
@@ -1504,10 +1502,13 @@ pre {
 
 table {
   width: 100%;
-  border-collapse: collapse;
-  border-radius: 4px;
+  border-collapse: separate;
+  border-radius: ${EditorStyleHelper.blockRadius};
   margin-top: 1em;
   box-sizing: border-box;
+  border: 1px solid ${props.theme.divider};
+  border-left: 0;
+  border-spacing: 0;
 
   * {
     box-sizing: border-box;
@@ -1516,24 +1517,39 @@ table {
   tr {
     position: relative;
     border-bottom: 1px solid ${props.theme.divider};
+    border-color: inherit;
   }
 
   td,
   th {
     position: relative;
     vertical-align: top;
-    border: 1px solid ${props.theme.divider};
     position: relative;
     padding: 4px 8px;
     text-align: start;
     min-width: 100px;
     font-weight: normal;
+    border-left: 1px solid ${props.theme.divider};
+    border-top: 1px solid ${props.theme.divider};
   }
 
   th {
     background: ${transparentize(0.75, props.theme.divider)};
     color: ${props.theme.textSecondary};
     font-weight: 500;
+  }
+
+  tr:first-child th,
+  tr:first-child td {
+    border-top: 0;
+  }
+  tr:first-child th:first-child,
+  tr:first-child td:first-child {
+    border-radius: ${EditorStyleHelper.blockRadius} 0 0 0;
+  }
+  tr:last-child th:first-child,
+  tr:last-child td:first-child {
+    border-radius: 0 0 0 ${EditorStyleHelper.blockRadius};
   }
 
   td .component-embed {
@@ -1595,6 +1611,7 @@ table {
     left: -16px;
     width: 0;
     height: 2px;
+    z-index: 1;
 
     &::after {
       content: "";
@@ -1639,6 +1656,7 @@ table {
     right: -1px;
     width: 2px;
     height: 0;
+    z-index: 1;
 
     &::after {
       content: "";
