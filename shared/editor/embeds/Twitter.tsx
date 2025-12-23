@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Suspense } from "react";
-import { EmbedProps as Props } from ".";
+import type { EmbedProps as Props } from ".";
 
 const Tweet = React.lazy(() =>
   import("react-tweet").then((t) => ({ default: t.Tweet }))
