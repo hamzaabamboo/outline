@@ -1,13 +1,13 @@
-import { LocationDescriptor } from "history";
+import type { LocationDescriptor } from "history";
 import { observer } from "mobx-react";
 import * as React from "react";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { ellipsis, s } from "@shared/styles";
-import Document from "~/models/Document";
-import Revision from "~/models/Revision";
+import { s, ellipsis } from "@shared/styles";
+import type Document from "~/models/Document";
+import type Revision from "~/models/Revision";
 import DocumentBreadcrumb from "~/components/DocumentBreadcrumb";
 import DocumentTasks from "~/components/DocumentTasks";
 import Flex from "~/components/Flex";
@@ -192,7 +192,6 @@ const DocumentMeta: React.FC<Props> = ({
         rtl={document.dir === "rtl"}
         {...rest}
         dir="ltr"
-        lang=""
       >
         {to ? (
           <Link to={to} replace={replace}>
@@ -205,7 +204,7 @@ const DocumentMeta: React.FC<Props> = ({
           <span>
             &nbsp;{t("in")}&nbsp;
             <Strong>
-              <DocumentBreadcrumb document={document} onlyText />
+              <DocumentBreadcrumb document={document} maxDepth={1} onlyText />
             </Strong>
           </span>
         )}

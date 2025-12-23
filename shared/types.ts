@@ -102,6 +102,7 @@ export enum AttachmentPreset {
   WorkspaceImport = "workspaceImport",
   Import = "import",
   Avatar = "avatar",
+  Emoji = "emoji",
 }
 
 export enum IntegrationType {
@@ -196,6 +197,9 @@ export type IntegrationSettings<T> = T extends IntegrationType.Embed
       linear?: {
         workspace: { id: string; name: string; key: string; logoUrl?: string };
       };
+      diagrams?: {
+        url: string;
+      };
     }
   : T extends IntegrationType.Analytics
     ? { measurementId: string; instanceUrl?: string; scriptName?: string }
@@ -219,6 +223,9 @@ export type IntegrationSettings<T> = T extends IntegrationType.Embed
                         avatarUrl?: string;
                       };
                     };
+                  };
+                  diagrams?: {
+                    url: string;
                   };
                 }
               | { url: string; channel: string; channelId: string }
@@ -452,6 +459,8 @@ export type UnfurlResponse = {
     type: UnfurlResourceType.Group;
     /** Group name */
     name: string;
+    /** Group description */
+    description: string | null;
     /** Number of members in the group */
     memberCount: number;
     /** Array of group members (limited to display count) */
@@ -556,6 +565,7 @@ export type ProsemirrorDoc = {
 export enum IconType {
   SVG = "svg",
   Emoji = "emoji",
+  Custom = "custom",
 }
 
 export enum EmojiCategory {

@@ -11,9 +11,11 @@ import isNil from "lodash/isNil";
 import remove from "lodash/remove";
 import uniq from "lodash/uniq";
 import mime from "mime-types";
-import { Op, ScopeOptions, Sequelize, WhereOptions } from "sequelize";
+import type { Order, ScopeOptions, WhereOptions } from "sequelize";
+import { Op, Sequelize } from "sequelize";
 import { randomUUID } from "crypto";
-import { NavigationNode, StatusFilter, UserRole } from "@shared/types";
+import type { NavigationNode } from "@shared/types";
+import { StatusFilter, UserRole } from "@shared/types";
 import { subtractDate } from "@shared/utils/date";
 import slugify from "@shared/utils/slugify";
 import documentCreator from "@server/commands/documentCreator";
@@ -65,12 +67,11 @@ import {
   presentGroupMembership,
   presentGroup,
 } from "@server/presenters";
-import DocumentImportTask, {
-  DocumentImportTaskResponse,
-} from "@server/queues/tasks/DocumentImportTask";
+import type { DocumentImportTaskResponse } from "@server/queues/tasks/DocumentImportTask";
+import DocumentImportTask from "@server/queues/tasks/DocumentImportTask";
 import EmptyTrashTask from "@server/queues/tasks/EmptyTrashTask";
 import FileStorage from "@server/storage/files";
-import { APIContext } from "@server/types";
+import type { APIContext } from "@server/types";
 import { RateLimiterStrategy } from "@server/utils/RateLimiter";
 import ZipHelper from "@server/utils/ZipHelper";
 import { getTeamFromContext } from "@server/utils/passport";
@@ -145,9 +146,13 @@ router.post(
       // index sort is special because it uses the order of the documents in the
       // collection.documentStructure rather than a database column
       if (sort === "index") {
+        // Extract all document IDs from the collection structure.
         documentIds = (collection.documentStructure || [])
           .map((node) => node.id)
-          .slice(ctx.state.pagination.offset, ctx.state.pagination.limit);
+          .slice(
+            ctx.state.pagination.offset,
+            ctx.state.pagination.offset + ctx.state.pagination.limit
+          );
         where[Op.and].push({ id: documentIds });
       } // if it's not a backlink request, filter by all collections the user has access to
     } else if (!backlinkDocumentId) {
@@ -271,30 +276,33 @@ router.post(
       });
     }
 
+    // When sorting by index, use array_position to sort by the document order
+    // in the collection structure directly in SQL, enabling correct pagination
+    const orderClause =
+      sort === "index"
+        ? documentIds.length > 0
+          ? [
+              [
+                Sequelize.literal(
+                  `array_position(ARRAY[${documentIds.map((id) => `'${id}'`).join(",")}]::uuid[], "document"."id")`
+                ),
+                direction,
+              ],
+            ]
+          : undefined
+        : [[sort, direction]];
+
+    // When sorting by index, pagination is already handled by slicing documentIds,
+    // so we skip the SQL-level offset to avoid double-pagination
     const [documents, total] = await Promise.all([
       Document.withMembershipScope(user.id).findAll({
         where,
-        order: [
-          [
-            // this needs to be done otherwise findAll will throw citing
-            // that the column "document"."index" doesn't exist – value of sort
-            // is required to be a column name
-            sort === "index" ? "updatedAt" : sort,
-            direction,
-          ],
-        ],
-        offset: ctx.state.pagination.offset,
+        order: orderClause as Order,
+        offset: sort === "index" ? 0 : ctx.state.pagination.offset,
         limit: ctx.state.pagination.limit,
       }),
       Document.count({ where }),
     ]);
-
-    if (sort === "index") {
-      // sort again so as to retain the order of documents as in collection.documentStructure
-      documents.sort(
-        (a, b) => documentIds.indexOf(a.id) - documentIds.indexOf(b.id)
-      );
-    }
 
     const data = await Promise.all(
       documents.map((document) => presentDocument(ctx, document))
@@ -316,8 +324,13 @@ router.post(
   validate(T.DocumentsArchivedSchema),
   async (ctx: APIContext<T.DocumentsArchivedReq>) => {
     const { sort, direction, collectionId } = ctx.input.body;
-
     const { user } = ctx.state.auth;
+
+    if (sort === "index") {
+      throw ValidationError(
+        "Sorting archived documents by index is not supported"
+      );
+    }
 
     let where: WhereOptions<Document> = {
       teamId: user.teamId,
@@ -325,8 +338,6 @@ router.post(
         [Op.ne]: null,
       },
     };
-
-    let documentIds: string[] = [];
 
     // if a specific collection is passed then we need to check auth to view it
     if (collectionId) {
@@ -336,14 +347,7 @@ router.post(
       });
       authorize(user, "readDocument", collection);
 
-      // index sort is special because it uses the order of the documents in the
-      // collection.documentStructure rather than a database column
-      if (sort === "index") {
-        documentIds = (collection?.documentStructure || [])
-          .map((node) => node.id)
-          .slice(ctx.state.pagination.offset, ctx.state.pagination.limit);
-        where = { ...where, id: documentIds };
-      } // otherwise, filter by all collections the user has access to
+      // otherwise, filter by all collections the user has access to
     } else {
       const collectionIds = await user.collectionIds();
       where = {
@@ -354,25 +358,10 @@ router.post(
 
     const documents = await Document.withMembershipScope(user.id).findAll({
       where,
-      order: [
-        [
-          // this needs to be done otherwise findAll will throw citing
-          // that the column "document"."index" doesn't exist – value of sort
-          // is required to be a column name
-          sort === "index" ? "updatedAt" : sort,
-          direction,
-        ],
-      ],
+      order: [[sort, direction]],
       offset: ctx.state.pagination.offset,
       limit: ctx.state.pagination.limit,
     });
-
-    if (sort === "index") {
-      // sort again so as to retain the order of documents as in collection.documentStructure
-      documents.sort(
-        (a, b) => documentIds.indexOf(a.id) - documentIds.indexOf(b.id)
-      );
-    }
 
     const data = await Promise.all(
       documents.map((document) => presentDocument(ctx, document))
@@ -469,6 +458,7 @@ router.post(
           ]),
           required: true,
           where: {
+            teamId: user.teamId,
             collectionId: collectionIds,
           },
           include: [
@@ -522,6 +512,7 @@ router.post(
       ? [collectionId]
       : await user.collectionIds();
     const where: WhereOptions = {
+      teamId: user.teamId,
       createdById: user.id,
       collectionId: {
         [Op.or]: [{ [Op.in]: collectionIds }, { [Op.is]: null }],
@@ -912,45 +903,19 @@ router.post(
 
     if (document.deletedAt && document.isWorkspaceTemplate) {
       authorize(user, "restore", document);
-
-      await document.restore({ transaction });
-      await Event.createFromContext(ctx, {
-        name: "documents.restore",
-        documentId: document.id,
-        collectionId: document.collectionId,
-        data: {
-          title: document.title,
-        },
-      });
+      await document.restoreWithCtx(ctx, { name: "restore" });
     } else if (document.deletedAt) {
       authorize(user, "restore", document);
       authorize(user, "updateDocument", destCollection);
 
       // restore a previously deleted document
-      await document.restoreTo(destCollectionId!, { transaction, user }); // destCollectionId is guaranteed to be defined here
-      await Event.createFromContext(ctx, {
-        name: "documents.restore",
-        documentId: document.id,
-        collectionId: document.collectionId,
-        data: {
-          title: document.title,
-        },
-      });
+      await document.restoreTo(ctx, { collectionId: destCollectionId! }); // destCollectionId is guaranteed to be defined here
     } else if (document.archivedAt) {
       authorize(user, "unarchive", document);
       authorize(user, "updateDocument", destCollection);
 
       // restore a previously archived document
-      await document.restoreTo(destCollectionId!, { transaction, user }); // destCollectionId is guaranteed to be defined here
-      await Event.createFromContext(ctx, {
-        name: "documents.unarchive",
-        documentId: document.id,
-        collectionId: document.collectionId,
-        data: {
-          title: document.title,
-          sourceCollectionId,
-        },
-      });
+      await document.restoreTo(ctx, { collectionId: destCollectionId! }); // destCollectionId is guaranteed to be defined here
     } else if (revisionId) {
       // restore a document to a specific revision
       authorize(user, "update", document);
@@ -958,16 +923,7 @@ router.post(
       authorize(document, "restore", revision);
 
       document.restoreFromRevision(revision);
-      await document.save({ transaction });
-
-      await Event.createFromContext(ctx, {
-        name: "documents.restore",
-        documentId: document.id,
-        collectionId: document.collectionId,
-        data: {
-          title: document.title,
-        },
-      });
+      await document.saveWithCtx(ctx, undefined, { name: "restore" });
     } else {
       assertPresent(revisionId, "revisionId is required");
     }
@@ -1204,33 +1160,19 @@ router.post(
       authorize(user, "createTemplate", user.team);
     }
 
-    const document = await Document.create(
-      {
-        editorVersion: original.editorVersion,
-        collectionId,
-        teamId: user.teamId,
-        publishedAt: publish ? new Date() : null,
-        lastModifiedById: user.id,
-        createdById: user.id,
-        template: true,
-        icon: original.icon,
-        color: original.color,
-        title: original.title,
-        text: original.text,
-        content: original.content,
-      },
-      {
-        transaction,
-      }
-    );
-    await Event.createFromContext(ctx, {
-      name: "documents.create",
-      documentId: document.id,
-      collectionId: document.collectionId,
-      data: {
-        title: document.title,
-        template: true,
-      },
+    const document = await Document.createWithCtx(ctx, {
+      editorVersion: original.editorVersion,
+      collectionId,
+      teamId: user.teamId,
+      publishedAt: publish ? new Date() : null,
+      lastModifiedById: user.id,
+      createdById: user.id,
+      template: true,
+      icon: original.icon,
+      color: original.color,
+      title: original.title,
+      text: original.text,
+      content: original.content,
     });
 
     // reload to get all of the data needed to present (user, collection etc)
@@ -1307,7 +1249,6 @@ router.post(
 
     document = await documentUpdater(ctx, {
       document,
-      user,
       ...input,
       publish,
       collectionId,
@@ -1364,15 +1305,13 @@ router.post(
       }
     }
 
-    const response = await documentDuplicator({
-      user,
+    const response = await documentDuplicator(ctx, {
       collection,
       document,
       title,
       publish,
       recursive,
       parentDocumentId,
-      ctx,
     });
 
     ctx.body = {
@@ -1427,14 +1366,11 @@ router.post(
       }
     }
 
-    const { documents, collectionChanged } = await documentMover({
-      user,
+    const { documents, collectionChanged } = await documentMover(ctx, {
       document,
       collectionId: collectionId ?? null,
       parentDocumentId,
       index,
-      ip: ctx.request.ip,
-      transaction,
     });
 
     ctx.body = {
@@ -1467,15 +1403,7 @@ router.post(
     });
     authorize(user, "archive", document);
 
-    await document.archive(user, { transaction });
-    await Event.createFromContext(ctx, {
-      name: "documents.archive",
-      documentId: document.id,
-      collectionId: document.collectionId,
-      data: {
-        title: document.title,
-      },
-    });
+    await document.archiveWithCtx(ctx);
 
     ctx.body = {
       data: await presentDocument(ctx, document),
@@ -1516,14 +1444,6 @@ router.post(
       authorize(user, "delete", document);
 
       await document.delete(user);
-      await Event.createFromContext(ctx, {
-        name: "documents.delete",
-        documentId: document.id,
-        collectionId: document.collectionId,
-        data: {
-          title: document.title,
-        },
-      });
     }
 
     ctx.body = {
@@ -1536,35 +1456,32 @@ router.post(
   "documents.unpublish",
   auth(),
   validate(T.DocumentsUnpublishSchema),
+  transaction(),
   async (ctx: APIContext<T.DocumentsUnpublishReq>) => {
     const { id, detach } = ctx.input.body;
     const { user } = ctx.state.auth;
+    const { transaction } = ctx.state;
 
     const document = await Document.findByPk(id, {
       userId: user.id,
     });
     authorize(user, "unpublish", document);
 
-    const childDocumentIds = await document.findAllChildDocumentIds({
-      archivedAt: {
-        [Op.eq]: null,
+    const childDocumentIds = await document.findAllChildDocumentIds(
+      {
+        archivedAt: {
+          [Op.eq]: null,
+        },
       },
-    });
+      { transaction }
+    );
     if (childDocumentIds.length > 0) {
       throw InvalidRequestError(
         "Cannot unpublish document with child documents"
       );
     }
 
-    // detaching would unset collectionId from document, so save a ref to the affected collectionId.
-    const collectionId = document.collectionId;
-
-    await document.unpublish(user, { detach });
-    await Event.createFromContext(ctx, {
-      name: "documents.unpublish",
-      documentId: document.id,
-      collectionId,
-    });
+    await document.unpublishWithCtx(ctx, { detach });
 
     ctx.body = {
       data: await presentDocument(ctx, document),
@@ -1713,7 +1630,7 @@ router.post(
       authorize(user, "read", templateDocument);
     }
 
-    const document = await documentCreator({
+    const document = await documentCreator(ctx, {
       id,
       title,
       text: !isNil(text)
@@ -1728,9 +1645,7 @@ router.post(
       templateDocument,
       template,
       fullWidth,
-      user,
       editorVersion,
-      ctx,
     });
 
     if (collection) {
@@ -1771,8 +1686,8 @@ router.post(
       }),
     ]);
 
-    authorize(actor, "read", user);
     authorize(actor, "manageUsers", document);
+    authorize(actor, "read", user);
 
     const UserMemberships = await UserMembership.findAll({
       where: {
@@ -1795,27 +1710,33 @@ router.post(
       UserMemberships.length ? UserMemberships[0].index : null
     );
 
-    const [membership, isNew] = await UserMembership.findOrCreate({
+    let membership = await UserMembership.findOne({
       where: {
         documentId: id,
         userId,
-      },
-      defaults: {
-        index,
-        permission: permission || user.defaultDocumentPermission,
-        createdById: actor.id,
       },
       lock: transaction.LOCK.UPDATE,
       ...ctx.context,
     });
 
-    if (!isNew && permission) {
-      membership.permission = permission;
-
-      // disconnect from the source if the permission is manually updated
-      membership.sourceId = null;
-
-      await membership.save(ctx.context);
+    if (membership) {
+      if (permission) {
+        membership.permission = permission;
+        // disconnect from the source if the permission is manually updated
+        membership.sourceId = null;
+        await membership.save(ctx.context);
+      }
+    } else {
+      membership = await UserMembership.create(
+        {
+          documentId: id,
+          userId,
+          index,
+          permission: permission || user.defaultDocumentPermission,
+          createdById: actor.id,
+        },
+        ctx.context
+      );
     }
 
     ctx.body = {
@@ -1893,29 +1814,35 @@ router.post(
         transaction,
       }),
     ]);
-    authorize(user, "update", document);
+    authorize(user, "manageUsers", document);
     authorize(user, "read", group);
 
-    const [membership, created] = await GroupMembership.findOrCreate({
+    let membership = await GroupMembership.findOne({
       where: {
         documentId: id,
         groupId,
-      },
-      defaults: {
-        permission: permission || user.defaultDocumentPermission,
-        createdById: user.id,
       },
       lock: transaction.LOCK.UPDATE,
       ...ctx.context,
     });
 
-    if (!created && permission) {
-      membership.permission = permission;
-
-      // disconnect from the source if the permission is manually updated
-      membership.sourceId = null;
-
-      await membership.save(ctx.context);
+    if (membership) {
+      if (permission) {
+        membership.permission = permission;
+        // disconnect from the source if the permission is manually updated
+        membership.sourceId = null;
+        await membership.save(ctx.context);
+      }
+    } else {
+      membership = await GroupMembership.create(
+        {
+          documentId: id,
+          groupId,
+          permission: permission || user.defaultDocumentPermission,
+          createdById: user.id,
+        },
+        ctx.context
+      );
     }
 
     ctx.body = {
@@ -1947,7 +1874,7 @@ router.post(
         transaction,
       }),
     ]);
-    authorize(user, "update", document);
+    authorize(user, "manageUsers", document);
     authorize(user, "read", group);
 
     const membership = await GroupMembership.findOne({

@@ -6,20 +6,18 @@ import {
   useMemo,
   useEffect,
   forwardRef,
+  useRef,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useHistory } from "react-router-dom";
 import { toast } from "sonner";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
-import {
-  AuthenticationFailed,
-  DocumentTooLarge,
-  EditorUpdateError,
-} from "@shared/collaboration/CloseEvents";
+import { EditorUpdateError } from "@shared/collaboration/CloseEvents";
 import EDITOR_VERSION from "@shared/editor/version";
 import { supportsPassiveListener } from "@shared/utils/browser";
-import Editor, { Props as EditorProps } from "~/components/Editor";
+import type { Props as EditorProps } from "~/components/Editor";
+import Editor from "~/components/Editor";
 import MultiplayerExtension from "~/editor/extensions/Multiplayer";
 import env from "~/env";
 import useCurrentUser from "~/hooks/useCurrentUser";
@@ -27,9 +25,10 @@ import useIdle from "~/hooks/useIdle";
 import useIsMounted from "~/hooks/useIsMounted";
 import usePageVisibility from "~/hooks/usePageVisibility";
 import useStores from "~/hooks/useStores";
-import { AwarenessChangeEvent } from "~/types";
+import type { AwarenessChangeEvent } from "~/types";
 import Logger from "~/utils/Logger";
 import { homePath } from "~/utils/routeHelpers";
+import { sleep } from "@shared/utils/timers";
 
 type Props = EditorProps & {
   id: string;
@@ -56,6 +55,7 @@ function MultiplayerEditor({ onSynced, ...props }: Props, ref: any) {
   const history = useHistory();
   const { t } = useTranslation();
   const currentUser = useCurrentUser();
+  const retryCount = useRef(0);
   const { presence, auth, ui } = useStores();
   const [editorVersionBehind, setEditorVersionBehind] = useState(false);
   const [showCursorNames, setShowCursorNames] = useState(false);
@@ -109,9 +109,21 @@ function MultiplayerEditor({ onSynced, ...props }: Props, ref: any) {
     );
 
     provider.on("authenticationFailed", () => {
-      void auth.fetchAuth().catch(() => {
-        history.replace(homePath());
-      });
+      provider.shouldConnect = false;
+      retryCount.current++;
+
+      sleep(retryCount.current * 1000 - 1000).then(() =>
+        auth
+          .fetchAuth()
+          .then(() => {
+            provider.setConfiguration({ token: auth.collaborationToken });
+            provider.connect();
+            provider.shouldConnect = true;
+          })
+          .catch(() => {
+            history.replace(homePath());
+          })
+      );
     });
 
     provider.on("awarenessChange", (event: AwarenessChangeEvent) => {
@@ -151,14 +163,16 @@ function MultiplayerEditor({ onSynced, ...props }: Props, ref: any) {
     provider.on("synced", () => {
       presence.touch(documentId, currentUser.id, false);
       setRemoteSynced(true);
+      retryCount.current = 0;
     });
 
     provider.on("close", (ev: MessageEvent) => {
       if ("code" in ev.event) {
-        provider.shouldConnect =
-          ev.event.code !== DocumentTooLarge.code &&
-          ev.event.code !== AuthenticationFailed.code &&
-          ev.event.code !== EditorUpdateError.code;
+        // Note other close code are handled internally by the library
+        if (ev.event.code === EditorUpdateError.code) {
+          provider.shouldConnect = false;
+        }
+
         ui.setMultiplayerStatus("disconnected", ev.event.code);
 
         if (ev.event.code === EditorUpdateError.code) {
@@ -210,7 +224,6 @@ function MultiplayerEditor({ onSynced, ...props }: Props, ref: any) {
     ui,
     presence,
     ydoc,
-    token,
     currentUser.id,
     isMounted,
     auth,

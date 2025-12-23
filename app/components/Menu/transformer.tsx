@@ -10,7 +10,7 @@ import {
   MenuGroup,
 } from "~/components/primitives/Menu";
 import * as Components from "~/components/primitives/components/Menu";
-import { MenuItem } from "~/types";
+import type { MenuItem } from "~/types";
 import { MouseSafeArea } from "~/components/MouseSafeArea";
 import { createRef } from "react";
 
@@ -166,7 +166,7 @@ export function toMobileMenuItems(
             <Components.MenuLabel>{item.title}</Components.MenuLabel>
             {item.selected !== undefined && (
               <Components.SelectedIconWrapper aria-hidden>
-                {item.selected ? <CheckmarkIcon /> : null}
+                {item.selected ? <CheckmarkIcon size={18} /> : null}
               </Components.SelectedIconWrapper>
             )}
           </Components.MenuButton>

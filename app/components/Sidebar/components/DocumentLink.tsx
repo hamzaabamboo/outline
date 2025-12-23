@@ -1,4 +1,4 @@
-import { Location } from "history";
+import type { Location } from "history";
 import { observer } from "mobx-react";
 import { PlusIcon } from "outline-icons";
 import * as React from "react";
@@ -6,13 +6,15 @@ import { useTranslation } from "react-i18next";
 import { useHistory } from "react-router-dom";
 import styled from "styled-components";
 import Icon from "@shared/components/Icon";
-import { NavigationNode, UserPreference } from "@shared/types";
+import type { NavigationNode } from "@shared/types";
+import { UserPreference } from "@shared/types";
 import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { sortNavigationNodes } from "@shared/utils/collections";
 import { DocumentValidation } from "@shared/validations";
-import Collection from "~/models/Collection";
-import Document from "~/models/Document";
-import EditableTitle, { RefHandle } from "~/components/EditableTitle";
+import type Collection from "~/models/Collection";
+import type Document from "~/models/Document";
+import type { RefHandle } from "~/components/EditableTitle";
+import EditableTitle from "~/components/EditableTitle";
 import Fade from "~/components/Fade";
 import NudeButton from "~/components/NudeButton";
 import Tooltip from "~/components/Tooltip";
@@ -31,10 +33,11 @@ import DropCursor from "./DropCursor";
 import DropToImport from "./DropToImport";
 import Folder from "./Folder";
 import Relative from "./Relative";
-import { SidebarContextType, useSidebarContext } from "./SidebarContext";
+import type { SidebarContextType } from "./SidebarContext";
+import { useSidebarContext } from "./SidebarContext";
 import SidebarLink from "./SidebarLink";
-import UserMembership from "~/models/UserMembership";
-import GroupMembership from "~/models/GroupMembership";
+import type UserMembership from "~/models/UserMembership";
+import type GroupMembership from "~/models/GroupMembership";
 import { ActionContextProvider } from "~/hooks/useActionContext";
 import { useDocumentMenuAction } from "~/hooks/useDocumentMenuAction";
 
@@ -130,17 +133,13 @@ function InnerDocumentLink(
     }
   }, [setCollapsed, expanded, hasChildDocuments]);
 
-  const handleDisclosureClick = React.useCallback(
-    (ev) => {
-      ev?.preventDefault();
-      if (expanded) {
-        setCollapsed();
-      } else {
-        setExpanded();
-      }
-    },
-    [setCollapsed, setExpanded, expanded]
-  );
+  const handleDisclosureClick = React.useCallback(() => {
+    if (expanded) {
+      setCollapsed();
+    } else {
+      setExpanded();
+    }
+  }, [setCollapsed, setExpanded, expanded]);
 
   const handlePrefetch = React.useCallback(() => {
     void prefetchDocument?.(node.id);
@@ -217,6 +216,19 @@ function InnerDocumentLink(
     useDropToReparentDocument(node, setExpanded, parentRef);
 
   // Drop to reorder
+  const [{ isOverReorder: isOverReorderAbove }, dropToReorderAbove] =
+    useDropToReorderDocument(node, collection, (item) => {
+      if (!collection) {
+        return;
+      }
+      return {
+        documentId: item.id,
+        collectionId: collection.id,
+        parentDocumentId: parentId,
+        index,
+      };
+    });
+
   const [{ isOverReorder, isDraggingAnyDocument }, dropToReorder] =
     useDropToReorderDocument(node, collection, (item) => {
       if (!collection) {
@@ -302,6 +314,7 @@ function InnerDocumentLink(
           { publish: true }
         );
         collection?.addDocument(newDocument, node.id);
+        membership?.addDocument(newDocument, node.id);
 
         closeAddingNewChild();
         history.push({
@@ -389,6 +402,13 @@ function InnerDocumentLink(
       }}
     >
       <Relative ref={parentRef}>
+        {isDraggingAnyDocument && collection?.isManualSort && index === 0 && (
+          <DropCursor
+            isActiveDrop={isOverReorderAbove}
+            innerRef={dropToReorderAbove}
+            position="top"
+          />
+        )}
         <Draggable
           key={node.id}
           ref={drag}
@@ -397,7 +417,7 @@ function InnerDocumentLink(
           onKeyDown={handleKeyDown}
         >
           <div ref={dropToReparent}>
-            <DropToImport documentId={node.id} activeClassName="activeDropZone">
+            <DropToImport documentId={node.id}>
               <SidebarLink
                 // @ts-expect-error react-router type is wrong, string component is fine.
                 component={isEditing ? "div" : undefined}

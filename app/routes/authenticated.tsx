@@ -1,6 +1,7 @@
 import { observer } from "mobx-react";
 import { Suspense } from "react";
-import { Switch, Redirect, RouteComponentProps } from "react-router-dom";
+import type { RouteComponentProps } from "react-router-dom";
+import { Switch, Redirect } from "react-router-dom";
 import DocumentNew from "~/scenes/DocumentNew";
 import Error404 from "~/scenes/Errors/Error404";
 import AuthenticatedLayout from "~/components/AuthenticatedLayout";
@@ -17,7 +18,8 @@ import {
   homePath,
   searchPath,
   settingsPath,
-  matchDocumentSlug as slug,
+  matchDocumentSlug as documentSlug,
+  matchCollectionSlug as collectionSlug,
   trashPath,
 } from "~/utils/routeHelpers";
 
@@ -80,22 +82,39 @@ function AuthenticatedRoutes() {
                 to={settingsPath("templates")}
               />
               <Redirect exact from="/collections/*" to="/collection/*" />
-              <Route exact path="/collection/:id/new" component={DocumentNew} />
               <Route
                 exact
-                path="/collection/:id/:tab?"
+                path={`/collection/${collectionSlug}/new`}
+                component={DocumentNew}
+              />
+              <Route
+                exact
+                path={`/collection/${collectionSlug}/overview/edit`}
+                component={Collection}
+              />
+              <Route
+                exact
+                path={`/collection/${collectionSlug}/:tab?`}
                 component={Collection}
               />
               <Route exact path="/doc/new" component={DocumentNew} />
-              <Route exact path={`/d/${slug}`} component={RedirectDocument} />
               <Route
                 exact
-                path={`/doc/${slug}/history/:revisionId?`}
+                path={`/d/${documentSlug}`}
+                component={RedirectDocument}
+              />
+              <Route
+                exact
+                path={`/doc/${documentSlug}/history/:revisionId?`}
                 component={Document}
               />
 
-              <Route exact path={`/doc/${slug}/edit`} component={Document} />
-              <Route path={`/doc/${slug}`} component={Document} />
+              <Route
+                exact
+                path={`/doc/${documentSlug}/edit`}
+                component={Document}
+              />
+              <Route path={`/doc/${documentSlug}`} component={Document} />
               <Route
                 exact
                 path={`${searchPath()}/:query?`}

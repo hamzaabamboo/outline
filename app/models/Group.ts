@@ -1,9 +1,9 @@
 import { computed, observable } from "mobx";
-import GroupMembership from "./GroupMembership";
+import type GroupMembership from "./GroupMembership";
 import Model from "./base/Model";
 import Field from "./decorators/Field";
 import { GroupPermission } from "@shared/types";
-import { Searchable } from "./interfaces/Searchable";
+import type { Searchable } from "./interfaces/Searchable";
 
 class Group extends Model implements Searchable {
   static modelName = "Group";
@@ -11,6 +11,10 @@ class Group extends Model implements Searchable {
   @Field
   @observable
   name: string;
+
+  @Field
+  @observable
+  description: string;
 
   @observable
   externalId: string | undefined;
@@ -33,7 +37,7 @@ class Group extends Model implements Searchable {
 
   @computed
   get searchContent(): string[] {
-    return [this.name].filter(Boolean);
+    return [this.name, this.description].filter(Boolean);
   }
 
   @computed

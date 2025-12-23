@@ -1,7 +1,9 @@
-import { Token } from "markdown-it";
-import { NodeSpec } from "prosemirror-model";
-import { Plugin } from "prosemirror-state";
-import { DecorationSet, Decoration, EditorView } from "prosemirror-view";
+import type { Token } from "markdown-it";
+import type { NodeSpec } from "prosemirror-model";
+import type { EditorState } from "prosemirror-state";
+import { Plugin, PluginKey } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
+import { DecorationSet, Decoration } from "prosemirror-view";
 import { addColumnBefore, selectColumn } from "../commands/table";
 import { getCellAttrs, setCellAttrs } from "../lib/table";
 import {
@@ -68,8 +70,64 @@ export default class TableHeader extends Node {
       );
     }
 
+    const createColumnDecorations = (state: EditorState) => {
+      if (!this.editor.view?.editable) {
+        return DecorationSet.empty;
+      }
+
+      const { doc } = state;
+      const decorations: Decoration[] = [];
+      const cols = getCellsInRow(0)(state);
+
+      if (cols) {
+        cols.forEach((pos, index) => {
+          const className = cn(EditorStyleHelper.tableGripColumn, {
+            selected: isColumnSelected(index)(state) || isTableSelected(state),
+            first: index === 0,
+            last: index === cols.length - 1,
+          });
+
+          decorations.push(
+            Decoration.widget(
+              pos + 1,
+              () => {
+                const grip = document.createElement("a");
+                grip.role = "button";
+                grip.className = className;
+                grip.dataset.index = index.toString();
+                return grip;
+              },
+              {
+                key: cn(className, index),
+              }
+            )
+          );
+
+          if (index === 0) {
+            decorations.push(buildAddColumnDecoration(pos, index));
+          }
+
+          decorations.push(buildAddColumnDecoration(pos, index + 1));
+        });
+      }
+
+      return DecorationSet.create(doc, decorations);
+    };
+
     return [
       new Plugin({
+        key: new PluginKey("table-header-decorations"),
+        state: {
+          init: (_, state) => createColumnDecorations(state),
+          apply: (tr, pluginState, oldState, newState) => {
+            // Only recompute if selection or document changed
+            if (!tr.selectionSet && !tr.docChanged) {
+              return pluginState;
+            }
+
+            return createColumnDecorations(newState);
+          },
+        },
         props: {
           handleDOMEvents: {
             mousedown: (view: EditorView, event: MouseEvent) => {
@@ -107,49 +165,8 @@ export default class TableHeader extends Node {
               return false;
             },
           },
-          decorations: (state) => {
-            if (!this.editor.view?.editable) {
-              return;
-            }
-
-            const { doc } = state;
-            const decorations: Decoration[] = [];
-            const cols = getCellsInRow(0)(state);
-
-            if (cols) {
-              cols.forEach((pos, index) => {
-                const className = cn(EditorStyleHelper.tableGripColumn, {
-                  selected:
-                    isColumnSelected(index)(state) || isTableSelected(state),
-                  first: index === 0,
-                  last: index === cols.length - 1,
-                });
-
-                decorations.push(
-                  Decoration.widget(
-                    pos + 1,
-                    () => {
-                      const grip = document.createElement("a");
-                      grip.role = "button";
-                      grip.className = className;
-                      grip.dataset.index = index.toString();
-                      return grip;
-                    },
-                    {
-                      key: cn(className, index),
-                    }
-                  )
-                );
-
-                if (index === 0) {
-                  decorations.push(buildAddColumnDecoration(pos, index));
-                }
-
-                decorations.push(buildAddColumnDecoration(pos, index + 1));
-              });
-            }
-
-            return DecorationSet.create(doc, decorations);
+          decorations(state) {
+            return this.getState(state);
           },
         },
       }),

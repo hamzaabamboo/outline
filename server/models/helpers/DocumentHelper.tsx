@@ -5,14 +5,16 @@ import { updateYFragment, yDocToProsemirrorJSON } from "y-prosemirror";
 import * as Y from "yjs";
 import textBetween from "@shared/editor/lib/textBetween";
 import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
-import { IconType, ProsemirrorData } from "@shared/types";
+import type { NavigationNode, ProsemirrorData } from "@shared/types";
+import { IconType } from "@shared/types";
 import { determineIconType } from "@shared/utils/icon";
 import { parser, serializer, schema } from "@server/editor";
 import { addTags } from "@server/logging/tracer";
 import { trace } from "@server/logging/tracing";
 import { Collection, Document, Revision } from "@server/models";
 import diff from "@server/utils/diff";
-import { MentionAttrs, ProsemirrorHelper } from "./ProsemirrorHelper";
+import type { MentionAttrs } from "./ProsemirrorHelper";
+import { ProsemirrorHelper } from "./ProsemirrorHelper";
 import { TextHelper } from "./TextHelper";
 
 type HTMLOptions = {
@@ -520,5 +522,37 @@ export class DocumentHelper {
     const second = after.title + this.toPlainText(after);
     const distance = ukkonen(first, second, threshold + 1);
     return distance > threshold;
+  }
+
+  /**
+   * Sorts an array of documents based on their order in the collection's document structure.
+   * Documents are ordered according to their position in the navigation structure, with
+   * documents not found in the structure placed at the end. The result is reversed to
+   * account for documents being added in reverse order during processing.
+   *
+   * @param documents - Array of Document objects to be sorted
+   * @param documentStructure - Array of NavigationNode objects representing the collection's document hierarchy
+   * @returns Sorted array of documents in the order they appear in the document structure
+   *
+   **/
+  public static sortDocumentsByStructure(
+    documents: Document[],
+    documentStructure: NavigationNode[]
+  ): Document[] {
+    if (!documentStructure.length) {
+      return documents;
+    }
+
+    const orderMap = new Map<string, number>();
+    documentStructure.forEach((node, index) => {
+      orderMap.set(node.id, index);
+    });
+
+    return documents.sort((a, b) => {
+      const orderA = orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+
+      return orderA - orderB;
+    });
   }
 }

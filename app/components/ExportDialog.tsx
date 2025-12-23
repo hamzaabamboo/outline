@@ -4,7 +4,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import styled from "styled-components";
 import { FileOperationFormat, NotificationEventType } from "@shared/types";
-import Collection from "~/models/Collection";
+import type Collection from "~/models/Collection";
 import ConfirmationDialog from "~/components/ConfirmationDialog";
 import Flex from "~/components/Flex";
 import Text from "~/components/Text";
@@ -156,19 +156,21 @@ function ExportDialog({ collection, onSubmit }: Props) {
             </Text>{" "}
           </div>
         </Option>
-        <Option>
-          <input
-            type="checkbox"
-            name="includePrivate"
-            checked={includePrivate}
-            onChange={handleIncludePrivateChange}
-          />
-          <div>
-            <Text as="p" size="small" weight="bold">
-              {t("Include private collections")}
-            </Text>
-          </div>
-        </Option>
+        {!collection && (
+          <Option>
+            <input
+              type="checkbox"
+              name="includePrivate"
+              checked={includePrivate}
+              onChange={handleIncludePrivateChange}
+            />
+            <div>
+              <Text as="p" size="small" weight="bold">
+                {t("Include private collections")}
+              </Text>
+            </div>
+          </Option>
+        )}
       </Flex>
     </ConfirmationDialog>
   );

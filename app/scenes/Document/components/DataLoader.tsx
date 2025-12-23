@@ -1,11 +1,12 @@
 import { observer } from "mobx-react";
 import * as React from "react";
-import { useLocation, RouteComponentProps, StaticContext } from "react-router";
+import type { RouteComponentProps, StaticContext } from "react-router";
+import { useLocation } from "react-router";
 import { TeamPreference } from "@shared/types";
 import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { RevisionHelper } from "@shared/utils/RevisionHelper";
-import Document from "~/models/Document";
-import Revision from "~/models/Revision";
+import type Document from "~/models/Document";
+import type Revision from "~/models/Revision";
 import Error402 from "~/scenes/Errors/Error402";
 import Error403 from "~/scenes/Errors/Error403";
 import Error404 from "~/scenes/Errors/Error404";
@@ -16,7 +17,7 @@ import useCurrentTeam from "~/hooks/useCurrentTeam";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import usePolicy from "~/hooks/usePolicy";
 import useStores from "~/hooks/useStores";
-import { Properties } from "~/types";
+import type { Properties } from "~/types";
 import Logger from "~/utils/Logger";
 import {
   AuthorizationError,
@@ -86,17 +87,20 @@ function DataLoader({ match, children }: Props) {
   const isEditing = isEditRoute || !user?.separateEditMode;
   const can = usePolicy(document);
   const location = useLocation<LocationState>();
+  const missingPolicy = !can || Object.keys(can).length === 0;
 
   React.useEffect(() => {
     async function fetchDocument() {
       try {
-        await documents.fetch(documentSlug);
+        await documents.fetch(documentSlug, {
+          force: missingPolicy,
+        });
       } catch (err) {
         setError(err);
       }
     }
     void fetchDocument();
-  }, [ui, documents, documentSlug]);
+  }, [ui, documents, missingPolicy, documentSlug]);
 
   React.useEffect(() => {
     async function fetchRevision() {

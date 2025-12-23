@@ -7,9 +7,9 @@ import type BaseEmail from "@server/emails/templates/BaseEmail";
 import env from "@server/env";
 import Logger from "@server/logging/Logger";
 import type BaseProcessor from "@server/queues/processors/BaseProcessor";
-import type BaseTask from "@server/queues/tasks/BaseTask";
-import { UnfurlSignature, UninstallSignature } from "@server/types";
-import { BaseIssueProvider } from "./BaseIssueProvider";
+import type { BaseTask } from "@server/queues/tasks/base/BaseTask";
+import type { UnfurlSignature, UninstallSignature } from "@server/types";
+import type { BaseIssueProvider } from "./BaseIssueProvider";
 
 export enum PluginPriority {
   VeryHigh = 0,

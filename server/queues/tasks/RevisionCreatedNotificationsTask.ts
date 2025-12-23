@@ -15,9 +15,9 @@ import {
 } from "@server/models";
 import { DocumentHelper } from "@server/models/helpers/DocumentHelper";
 import NotificationHelper from "@server/models/helpers/NotificationHelper";
-import { RevisionEvent } from "@server/types";
+import type { RevisionEvent } from "@server/types";
 import { canUserAccessDocument } from "@server/utils/permissions";
-import BaseTask, { TaskPriority } from "./BaseTask";
+import { BaseTask, TaskPriority } from "./base/BaseTask";
 
 export default class RevisionCreatedNotificationsTask extends BaseTask<RevisionEvent> {
   public async perform(event: RevisionEvent) {

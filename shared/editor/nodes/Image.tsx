@@ -1,22 +1,25 @@
-import { Token } from "markdown-it";
+import type { Token } from "markdown-it";
 import { InputRule } from "prosemirror-inputrules";
-import { Node as ProsemirrorNode, NodeSpec, NodeType } from "prosemirror-model";
-import {
-  NodeSelection,
-  Plugin,
-  Command,
-  TextSelection,
-} from "prosemirror-state";
+import type {
+  Node as ProsemirrorNode,
+  NodeSpec,
+  NodeType,
+} from "prosemirror-model";
+import type { Command } from "prosemirror-state";
+import { NodeSelection, Plugin, TextSelection } from "prosemirror-state";
 import * as React from "react";
 import { sanitizeUrl } from "../../utils/urls";
 import Caption from "../components/Caption";
 import ImageComponent from "../components/Image";
-import { MarkdownSerializerState } from "../lib/markdown/serializer";
+import type { MarkdownSerializerState } from "../lib/markdown/serializer";
 import { EditorStyleHelper } from "../styles/EditorStyleHelper";
-import { ComponentProps } from "../types";
+import type { ComponentProps } from "../types";
 import SimpleImage from "./SimpleImage";
 import { LightboxImageFactory } from "../lib/Lightbox";
+import { ImageSource } from "../lib/FileHelper";
+import { DiagramPlaceholder } from "../components/DiagramPlaceholder";
 import { addComment } from "../commands/comment";
+import { addLink } from "../commands/link";
 
 const imageSizeRegex = /\s=(\d+)?x(\d+)?$/;
 
@@ -107,6 +110,10 @@ export default class Image extends SimpleImage {
           default: null,
           validate: "string|null",
         },
+        source: {
+          default: null,
+          validate: "string|null",
+        },
         layoutClass: {
           default: null,
           validate: "string|null",
@@ -156,7 +163,10 @@ export default class Image extends SimpleImage {
           tag: "img",
           getAttrs: (dom: HTMLImageElement) => {
             // Don't parse images from our own editor with this rule.
-            if (dom.parentElement?.classList.contains("image")) {
+            if (
+              dom.parentElement?.classList.contains("image") ||
+              dom.parentElement?.classList.contains("emoji")
+            ) {
               return false;
             }
 
@@ -326,6 +336,14 @@ export default class Image extends SimpleImage {
       view.dispatch(transaction);
     };
 
+  handleZoomIn =
+    ({ getPos, view }: ComponentProps) =>
+    () => {
+      this.editor.updateActiveLightboxImage(
+        LightboxImageFactory.createLightboxImage(view, getPos())
+      );
+    };
+
   handleClick =
     ({ getPos, view }: ComponentProps) =>
     () => {
@@ -334,30 +352,43 @@ export default class Image extends SimpleImage {
       );
     };
 
+  handleDownload =
+    ({ node }: ComponentProps) =>
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      return downloadImageNode(node);
+    };
+
+  handleEditDiagram =
+    ({ getPos, view }: ComponentProps) =>
+    () => {
+      const { commands } = this.editor;
+      const pos = getPos();
+      const $pos = view.state.doc.resolve(pos);
+      view.dispatch(view.state.tr.setSelection(new NodeSelection($pos)));
+      commands.editDiagram();
+    };
+
   component = (props: ComponentProps) => {
-    const [isDownloading, setIsDownloading] = React.useState(false);
-
-    const handleDownload = React.useCallback(
-      async (event: React.MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (isDownloading) {
-          return;
-        }
-        setIsDownloading(true);
-        await downloadImageNode(props.node);
-        setIsDownloading(false);
-      },
-      [isDownloading, props]
-    );
+    if (
+      props.node.attrs.source === ImageSource.DiagramsNet &&
+      !props.node.attrs.src
+    ) {
+      return (
+        <DiagramPlaceholder
+          onDoubleClick={this.handleEditDiagram(props)}
+          {...props}
+        />
+      );
+    }
 
     return (
       <ImageComponent
         {...props}
-        isDownloading={isDownloading}
         onClick={this.handleClick(props)}
-        onDownload={handleDownload}
+        onDownload={this.handleDownload(props)}
+        onZoomIn={this.handleZoomIn(props)}
         onChangeSize={this.handleChangeSize(props)}
       >
         <Caption
@@ -515,6 +546,7 @@ export default class Image extends SimpleImage {
         },
       commentOnImage: (): Command =>
         addComment({ userId: this.options.userId }),
+      linkOnImage: (): Command => addLink({ href: "" }),
     };
   }
 

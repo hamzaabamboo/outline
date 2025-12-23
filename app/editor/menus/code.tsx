@@ -1,13 +1,13 @@
 import { CopyIcon, ExpandedIcon } from "outline-icons";
-import { Node as ProseMirrorNode } from "prosemirror-model";
-import { EditorState } from "prosemirror-state";
+import type { Node as ProseMirrorNode } from "prosemirror-model";
+import type { EditorState } from "prosemirror-state";
 import {
   getFrequentCodeLanguages,
   codeLanguages,
   getLabelForLanguage,
 } from "@shared/editor/lib/code";
-import { MenuItem } from "@shared/editor/types";
-import { Dictionary } from "~/hooks/useDictionary";
+import type { MenuItem } from "@shared/editor/types";
+import type { Dictionary } from "~/hooks/useDictionary";
 
 export default function codeMenuItems(
   state: EditorState,
@@ -30,31 +30,33 @@ export default function codeMenuItems(
     )
     .map(([value, item]) => langToMenuItem({ node, value, label: item.label }));
 
-  const languageMenuItems = frequentLangMenuItems.length
-    ? [
-        ...frequentLangMenuItems,
-        { name: "separator" },
-        ...remainingLangMenuItems,
-      ]
-    : remainingLangMenuItems;
+  const getLanguageMenuItems = () =>
+    frequentLangMenuItems.length
+      ? [
+          ...frequentLangMenuItems,
+          { name: "separator" },
+          ...remainingLangMenuItems,
+        ]
+      : remainingLangMenuItems;
 
   return [
     {
       name: "copyToClipboard",
       icon: <CopyIcon />,
-      label: readOnly ? dictionary.copy : undefined,
+      label: readOnly
+        ? getLabelForLanguage(node.attrs.language ?? "none")
+        : undefined,
       tooltip: dictionary.copy,
     },
     {
       name: "separator",
-      visible: !readOnly,
     },
     {
-      visible: !readOnly,
       name: "code_block",
-      icon: <ExpandedIcon />,
       label: getLabelForLanguage(node.attrs.language ?? "none"),
-      children: languageMenuItems,
+      icon: <ExpandedIcon />,
+      children: getLanguageMenuItems(),
+      visible: !readOnly,
     },
   ];
 }

@@ -1,18 +1,19 @@
 import copy from "copy-to-clipboard";
-import { Token } from "markdown-it";
+import type { Token } from "markdown-it";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
-import {
+import type {
   NodeSpec,
   NodeType,
   Schema,
   Node as ProsemirrorNode,
 } from "prosemirror-model";
-import { Command, Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import type { Command, EditorState } from "prosemirror-state";
+import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { toast } from "sonner";
-import { Primitive } from "utility-types";
+import type { Primitive } from "utility-types";
 import type { Dictionary } from "~/hooks/useDictionary";
-import { UserPreferences } from "../../types";
+import type { UserPreferences } from "../../types";
 import { isMac } from "../../utils/browser";
 import backspaceToParagraph from "../commands/backspaceToParagraph";
 import {
@@ -33,7 +34,7 @@ import {
   setRecentlyUsedCodeLanguage,
 } from "../lib/code";
 import { isCode } from "../lib/isCode";
-import { MarkdownSerializerState } from "../lib/markdown/serializer";
+import type { MarkdownSerializerState } from "../lib/markdown/serializer";
 import { findNextNewline, findPreviousNewline } from "../queries/findNewlines";
 import { findParentNode } from "../queries/findParentNode";
 import { getMarkRange } from "../queries/getMarkRange";
@@ -185,6 +186,19 @@ export default class CodeFence extends Node {
   }
 
   get plugins() {
+    const createActiveCodeBlockDecoration = (state: EditorState) => {
+      const codeBlock = findParentNode(isCode)(state.selection);
+      if (!codeBlock) {
+        return DecorationSet.empty;
+      }
+      const decoration = Decoration.node(
+        codeBlock.pos,
+        codeBlock.pos + codeBlock.node.nodeSize,
+        { class: "code-active" }
+      );
+      return DecorationSet.create(state.doc, [decoration]);
+    };
+
     return [
       CodeHighlighting({
         name: this.name,
@@ -243,20 +257,21 @@ export default class CodeFence extends Node {
         },
       }),
       new Plugin({
-        props: {
-          decorations(state) {
-            const codeBlock = findParentNode(isCode)(state.selection);
-
-            if (!codeBlock) {
-              return null;
+        key: new PluginKey("code-fence-active"),
+        state: {
+          init: (_, state) => createActiveCodeBlockDecoration(state),
+          apply: (tr, pluginState, oldState, newState) => {
+            // Only recompute if selection or document changed
+            if (!tr.selectionSet && !tr.docChanged) {
+              return pluginState;
             }
 
-            const decoration = Decoration.node(
-              codeBlock.pos,
-              codeBlock.pos + codeBlock.node.nodeSize,
-              { class: "code-active" }
-            );
-            return DecorationSet.create(state.doc, [decoration]);
+            return createActiveCodeBlockDecoration(newState);
+          },
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state);
           },
         },
       }),

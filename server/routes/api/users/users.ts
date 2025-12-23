@@ -1,6 +1,8 @@
 import Router from "koa-router";
-import { Op, Sequelize, WhereOptions } from "sequelize";
-import { UserPreference, UserRole } from "@shared/types";
+import type { WhereOptions } from "sequelize";
+import { Op, Sequelize } from "sequelize";
+import type { UserPreference } from "@shared/types";
+import { UserRole } from "@shared/types";
 import { UserRoleHelper } from "@shared/utils/UserRoleHelper";
 import { settingsPath } from "@shared/utils/routeHelpers";
 import { UserValidation } from "@shared/validations";
@@ -19,7 +21,7 @@ import { User, Team } from "@server/models";
 import { UserFlag } from "@server/models/User";
 import { can, authorize } from "@server/policies";
 import { presentUser, presentPolicies } from "@server/presenters";
-import { APIContext } from "@server/types";
+import type { APIContext } from "@server/types";
 import { RateLimiterStrategy } from "@server/utils/RateLimiter";
 import { safeEqual } from "@server/utils/crypto";
 import { getDetailsForEmailUpdateToken } from "@server/utils/jwt";
@@ -321,6 +323,10 @@ router.post(
     }
     if (avatarUrl !== undefined) {
       user.avatarUrl = avatarUrl;
+
+      // Mark that the user has manually changed their avatar
+      // This prevents automatic syncing from identity providers
+      user.setFlag(UserFlag.AvatarUpdated, avatarUrl ? true : false);
     }
     if (language) {
       user.language = language;
@@ -521,7 +527,7 @@ router.post(
 
 router.post(
   "users.invite",
-  rateLimiter(RateLimiterStrategy.TenPerHour),
+  rateLimiter(RateLimiterStrategy.FiftyPerHour),
   auth(),
   validate(T.UsersInviteSchema),
   transaction(),

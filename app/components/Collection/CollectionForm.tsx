@@ -6,11 +6,12 @@ import { Trans, useTranslation } from "react-i18next";
 import styled from "styled-components";
 import Icon from "@shared/components/Icon";
 import { randomElement } from "@shared/random";
-import { CollectionPermission, TeamPreference } from "@shared/types";
+import type { CollectionPermission } from "@shared/types";
+import { TeamPreference } from "@shared/types";
 import { IconLibrary } from "@shared/utils/IconLibrary";
 import { colorPalette } from "@shared/utils/collections";
 import { CollectionValidation } from "@shared/validations";
-import Collection from "~/models/Collection";
+import type Collection from "~/models/Collection";
 import Button from "~/components/Button";
 import Flex from "~/components/Flex";
 import Input from "~/components/Input";
@@ -67,7 +68,13 @@ export const CollectionForm = observer(function CollectionForm_({
   const [hasOpenedIconPicker, setHasOpenedIconPicker] = useBoolean(false);
 
   const iconColor = useIconColor(collection);
-  const fallbackIcon = <Icon value="collection" color={iconColor} />;
+  const fallbackIcon = (
+    <Icon
+      value="collection"
+      initial={collection?.initial ?? "?"}
+      color={iconColor}
+    />
+  );
 
   const {
     register,

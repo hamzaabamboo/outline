@@ -2,10 +2,11 @@ import { faker } from "@faker-js/faker";
 import isNil from "lodash/isNil";
 import isNull from "lodash/isNull";
 import { Node } from "prosemirror-model";
-import { InferCreationAttributes } from "sequelize";
-import { DeepPartial } from "utility-types";
+import type { InferCreationAttributes } from "sequelize";
+import type { DeepPartial } from "utility-types";
 import { randomUUID } from "crypto";
 import { randomString } from "@shared/random";
+import type { ProsemirrorData, ReactionSummary } from "@shared/types";
 import {
   CollectionPermission,
   FileOperationState,
@@ -14,18 +15,18 @@ import {
   IntegrationService,
   IntegrationType,
   NotificationEventType,
-  ProsemirrorData,
-  ReactionSummary,
   SubscriptionType,
   UserRole,
 } from "@shared/types";
 import { parser, schema } from "@server/editor";
+import type { AuthenticationProvider } from "@server/models";
 import {
   Share,
   Team,
   User,
   Event,
   Document,
+  Emoji,
   Star,
   Collection,
   Group,
@@ -45,7 +46,6 @@ import {
   Import,
   OAuthAuthorizationCode,
   OAuthClient,
-  AuthenticationProvider,
   OAuthAuthentication,
   Relationship,
 } from "@server/models";
@@ -575,6 +575,39 @@ export async function buildAttachment(
   });
 }
 
+export async function buildEmoji(
+  overrides: Partial<Emoji> = {}
+): Promise<Emoji> {
+  if (!overrides.teamId) {
+    const team = await buildTeam();
+    overrides.teamId = team.id;
+  }
+
+  if (!overrides.createdById) {
+    const user = await buildUser({
+      teamId: overrides.teamId,
+    });
+    overrides.createdById = user.id;
+  }
+
+  if (!overrides.attachmentId) {
+    const attachment = await buildAttachment({
+      teamId: overrides.teamId,
+      userId: overrides.createdById,
+      contentType: "image/png",
+    });
+    overrides.attachmentId = attachment.id;
+  }
+
+  return Emoji.create({
+    name: faker.word
+      .adjective()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "_"),
+    ...overrides,
+  });
+}
+
 export async function buildWebhookSubscription(
   overrides: Partial<WebhookSubscription> = {}
 ): Promise<WebhookSubscription> {
@@ -763,10 +796,12 @@ export async function buildOAuthAuthentication({
   oauthClientId,
   user,
   scope,
+  grantId,
 }: {
   oauthClientId?: string;
   user: User;
   scope: string[];
+  grantId?: string;
 }) {
   const oauthClient = oauthClientId
     ? await OAuthClient.findByPk(oauthClientId, { rejectOnEmpty: true })
@@ -802,6 +837,7 @@ export async function buildOAuthAuthentication({
     refreshTokenHash: hash(refreshToken),
     refreshTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
     scope,
+    grantId,
   });
 }
 

@@ -4,34 +4,27 @@ import isEqual from "lodash/isEqual";
 import { action, observable } from "mobx";
 import { observer } from "mobx-react";
 import { Node } from "prosemirror-model";
+import type { Selection } from "prosemirror-state";
 import { AllSelection, TextSelection } from "prosemirror-state";
 import * as React from "react";
-import { WithTranslation, withTranslation } from "react-i18next";
-import {
-  Prompt,
-  Redirect,
-  RouteComponentProps,
-  StaticContext,
-  withRouter,
-} from "react-router";
+import type { WithTranslation } from "react-i18next";
+import { withTranslation } from "react-i18next";
+import type { RouteComponentProps, StaticContext } from "react-router";
+import { Prompt, withRouter, Redirect } from "react-router";
 import { toast } from "sonner";
 import styled from "styled-components";
 import breakpoint from "styled-components-breakpoint";
 import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
 import { s } from "@shared/styles";
-import {
-  IconType,
-  NavigationNode,
-  TOCPosition,
-  TeamPreference,
-} from "@shared/types";
+import type { NavigationNode } from "@shared/types";
+import { IconType, TOCPosition, TeamPreference } from "@shared/types";
 import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { TextHelper } from "@shared/utils/TextHelper";
 import { determineIconType } from "@shared/utils/icon";
 import { isModKey } from "@shared/utils/keyboard";
-import RootStore from "~/stores/RootStore";
+import type RootStore from "~/stores/RootStore";
 import Document from "~/models/Document";
-import Revision from "~/models/Revision";
+import type Revision from "~/models/Revision";
 import DocumentMove from "~/scenes/DocumentMove";
 import DocumentPublish from "~/scenes/DocumentPublish";
 import ErrorBoundary from "~/components/ErrorBoundary";
@@ -39,11 +32,11 @@ import LoadingIndicator from "~/components/LoadingIndicator";
 import PageTitle from "~/components/PageTitle";
 import PlaceholderDocument from "~/components/PlaceholderDocument";
 import RegisterKeyDown from "~/components/RegisterKeyDown";
-import { SidebarContextType } from "~/components/Sidebar/components/SidebarContext";
+import type { SidebarContextType } from "~/components/Sidebar/components/SidebarContext";
 import withStores from "~/components/withStores";
 import { MeasuredContainer } from "~/components/MeasuredContainer";
 import type { Editor as TEditor } from "~/editor";
-import { Properties } from "~/types";
+import type { Properties } from "~/types";
 import { client } from "~/utils/ApiClient";
 import { emojiToUrl } from "~/utils/emoji";
 import {
@@ -148,10 +141,7 @@ class DocumentScene extends React.Component<Props> {
    * @param template The template to use
    * @param selection The selection to replace, if any
    */
-  replaceSelection = (
-    template: Document | Revision,
-    selection?: TextSelection | AllSelection
-  ) => {
+  replaceSelection = (template: Document | Revision, selection?: Selection) => {
     const editorRef = this.editor.current;
 
     if (!editorRef) {
@@ -417,6 +407,23 @@ class DocumentScene extends React.Component<Props> {
     void this.onSave();
   });
 
+  handleSelectTemplate = async (template: Document | Revision) => {
+    const editorRef = this.editor.current;
+    if (!editorRef) {
+      return;
+    }
+
+    const { view } = editorRef;
+    const doc = view.state.doc;
+
+    return this.replaceSelection(
+      template,
+      ProsemirrorHelper.isEmpty(doc)
+        ? new AllSelection(doc)
+        : view.state.selection
+    );
+  };
+
   goBack = () => {
     if (!this.props.readOnly) {
       this.props.history.push({
@@ -523,7 +530,6 @@ class DocumentScene extends React.Component<Props> {
             <Header
               document={document}
               revision={revision}
-              shareId={shareId}
               isDraft={document.isDraft}
               isEditing={!readOnly && !!user?.separateEditMode}
               isSaving={this.isSaving}
@@ -532,8 +538,7 @@ class DocumentScene extends React.Component<Props> {
                 document.isSaving || this.isPublishing || this.isEmpty
               }
               savingIsDisabled={document.isSaving || this.isEmpty}
-              sharedTree={this.props.sharedTree}
-              onSelectTemplate={this.replaceSelection}
+              onSelectTemplate={this.handleSelectTemplate}
               onSave={this.onSave}
             />
             <Main
@@ -581,7 +586,6 @@ class DocumentScene extends React.Component<Props> {
                         key={embedsDisabled ? "disabled" : "enabled"}
                         ref={this.editor}
                         multiplayer={multiplayerEditor}
-                        shareId={shareId}
                         isDraft={document.isDraft}
                         template={document.isTemplate}
                         document={document}
@@ -604,11 +608,7 @@ class DocumentScene extends React.Component<Props> {
                       >
                         {shareId ? (
                           <ReferencesWrapper>
-                            <PublicReferences
-                              shareId={shareId}
-                              documentId={document.id}
-                              sharedTree={this.props.sharedTree}
-                            />
+                            <PublicReferences documentId={document.id} />
                           </ReferencesWrapper>
                         ) : !revision ? (
                           <ReferencesWrapper>

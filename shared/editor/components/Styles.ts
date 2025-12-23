@@ -1,7 +1,8 @@
 /* oxlint-disable no-irregular-whitespace */
 import { lighten, transparentize } from "polished";
-import styled, { DefaultTheme, css, keyframes } from "styled-components";
-import { hover } from "../../styles";
+import type { DefaultTheme } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
+import { breakpoints, hover } from "../../styles";
 import { EditorStyleHelper } from "../styles/EditorStyleHelper";
 import { videoStyle } from "./Video";
 
@@ -163,13 +164,13 @@ const codeBlockStyle = (props: Props) => css`
     opacity: 0.7;
   }
 
-  .token.operator,
   .token.boolean,
   .token.number {
     color: ${props.theme.codeNumber};
   }
 
-  .token.property {
+  .token.property,
+  .token.variable {
     color: ${props.theme.codeProperty};
   }
 
@@ -177,6 +178,8 @@ const codeBlockStyle = (props: Props) => css`
     color: ${props.theme.codeTag};
   }
 
+  .token.char,
+  .token.builtin,
   .token.string {
     color: ${props.theme.codeString};
   }
@@ -186,7 +189,20 @@ const codeBlockStyle = (props: Props) => css`
   }
 
   .token.attr-name {
-    color: ${props.theme.codeAttr};
+    color: ${props.theme.codeAttrName};
+  }
+
+  .token.attr-value,
+  .token.attr-value .token.punctuation {
+    color: ${props.theme.codeAttrValue};
+  }
+
+  .token.operator {
+    color: ${props.theme.codeOperator};
+  }
+
+  .token.namespace {
+    opacity: 0.8;
   }
 
   .token.entity,
@@ -242,6 +258,14 @@ const codeBlockStyle = (props: Props) => css`
     font-weight: bold;
   }
 
+  .token.constant {
+    color: ${props.theme.codeConstant};
+  }
+
+  .token.parameter {
+    color: ${props.theme.codeParameter};
+  }
+
   .token.important {
     color: ${props.theme.codeImportant};
   }
@@ -278,6 +302,77 @@ const emailStyle = (props: Props) => css`
   .image > img {
     width: auto;
     height: auto;
+  }
+`;
+
+/**
+ * Adjustments to line-height and paragraph margins for complex scripts. If adding
+ * scripts here you also need to update the `getLangFor` method.
+ *
+ * @returns The CSS styles for complex scripts.
+ */
+const textStyle = () => css`
+  /* Southeast Asian scripts */
+  :lang(th),  /* Thai */
+    :lang(lo),  /* Lao */
+    :lang(km),  /* Khmer */
+    :lang(my) {
+    /* Burmese */
+    p {
+      line-height: 1.7;
+      margin-top: 0.8em;
+      margin-bottom: 0.8em;
+    }
+  }
+
+  /* South Asian scripts */
+  :lang(hi),  /* Hindi */
+    :lang(mr),  /* Marathi */
+    :lang(ne),  /* Nepali */
+    :lang(bn),  /* Bengali */
+    :lang(gu),  /* Gujarati */
+    :lang(pa),  /* Punjabi */
+    :lang(te),  /* Telugu */
+    :lang(ta),  /* Tamil */
+    :lang(ml),  /* Malayalam */
+    :lang(si) {
+    /* Sinhala */
+    p {
+      line-height: 1.7;
+      margin-top: 0.8em;
+      margin-bottom: 0.8em;
+    }
+  }
+
+  /* Tibetan and related scripts */
+  :lang(bo) {
+    p {
+      line-height: 1.8;
+      margin-top: 0.8em;
+      margin-bottom: 0.8em;
+    }
+  }
+
+  /* Middle Eastern scripts */
+  :lang(ar),  /* Arabic */
+    :lang(fa),  /* Persian */
+    :lang(ur),  /* Urdu */
+    :lang(he) {
+    /* Hebrew */
+    p {
+      line-height: 1.6;
+    }
+  }
+
+  /* Ethiopic and other complex scripts */
+  :lang(am),  /* Amharic */
+    :lang(mn) {
+    /* Mongolian */
+    p {
+      line-height: 1.7;
+      margin-top: 0.8em;
+      margin-bottom: 0.8em;
+    }
   }
 `;
 
@@ -568,6 +663,31 @@ iframe.embed {
   }
 }
 
+.pdf {
+  position: relative;
+  width: max-content;
+  height: max-content;
+  margin-right: auto;
+  margin-left: auto;
+  max-width: 100%;
+  clear: both;
+  z-index: 1;
+  transition-property: width, height;
+  transition-duration: 80ms;
+  transition-timing-function: ease-in-out;
+
+  embed {
+    display: block;
+    max-width: 100%;
+    contain: strict,
+    content-visibility: auto,
+    backface-visibility: hidden,
+    transition-property: width, height;
+    transition-duration: 80ms;
+    transition-timing-function: ease-in-out;
+  }
+}
+
 .image-replacement-uploading {
   img {
     opacity: 0.5;
@@ -691,9 +811,6 @@ img.ProseMirror-separator {
 .component-image + img.ProseMirror-separator + br.ProseMirror-trailingBreak {
   display: none;
 }
-.component-image img {
-  cursor: zoom-in;
-}
 
 .${EditorStyleHelper.imageCaption} {
   border: 0;
@@ -721,13 +838,6 @@ img.ProseMirror-separator {
   }
   .${EditorStyleHelper.imageCaption}:empty {
     visibility: hidden;
-  }
-}
-
-.heading-content {
-  &::before {
-    content: "​";
-    display: inline;
   }
 }
 
@@ -801,8 +911,51 @@ h6:not(.placeholder)::before {
   }
 }
 
+.ProseMirror[contenteditable="true"] {
+  & .image-wrapper.ProseMirror-selectednode > a {
+    /* force zoom-in cursor if image node is selected */
+    cursor: zoom-in !important;
+  }
+  &.ProseMirror-focused {
+    .image-wrapper:not(.ProseMirror-selectednode) > a {
+      /* prevents cursor from turning to pointer on pointer down */
+      pointer-events: none;
+    }
+  }
+  &:not(.ProseMirror-focused) {
+    .image-wrapper  {
+      & > a[href] {
+        cursor: pointer;
+      }
+      & > a:not([href]) {
+        /* prevents cursor from turning to pointer on pointer down */
+        pointer-events: none;
+      }
+    }
+  }
+}
+
+.ProseMirror[contenteditable="false"] {
+  .image-wrapper  {
+    & > a[href] {
+      cursor: pointer;
+    }
+    & > a:not([href]) {
+      cursor: zoom-in;
+    }
+  }
+}
+
 .with-emoji {
   margin-${props.rtl ? "right" : "left"}: -1em;
+}
+
+.emoji img {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  position: relative;
+  top: -0.1em;
 }
 
 .heading-anchor,
@@ -841,8 +994,9 @@ h6:not(.placeholder)::before {
   margin-left: -26px;
   flex-direction: row;
   display: none;
-  position: relative;
-  top: -2px;
+  position: absolute;
+  left: 0;
+  top: calc(.5em - 6px);
   width: 26px;
   height: 24px;
 
@@ -1090,6 +1244,10 @@ p {
   min-height: 1.6em;
 }
 
+.heading-content {
+  position: relative;
+}
+
 .heading-content a,
 p a {
   color: ${props.theme.text};
@@ -1331,12 +1489,15 @@ code {
   border: 1px solid ${props.theme.codeBorder};
   background: ${props.theme.codeBackground};
   padding: 3px 4px;
-  color: ${props.theme.codeString};
+  color: ${props.theme.code};
   font-family: ${props.theme.fontFamilyMono};
   font-size: 90%;
 
   .${EditorStyleHelper.codeWord} {
-    white-space: nowrap;
+    @media (min-width: ${breakpoints.tablet}px) {
+      white-space: nowrap;
+    }
+    color: ${props.theme.codeKeyword};
   }
 }
 
@@ -1801,6 +1962,11 @@ table {
   padding-right: ${EditorStyleHelper.padding}px;
   transition: border 250ms ease-in-out 0s;
 
+  table {
+    table-layout: fixed;
+    word-break: break-word;
+  }
+
   &:hover {
     scrollbar-color: ${props.theme.scrollbarThumb} ${
       props.theme.scrollbarBackground
@@ -1993,6 +2159,7 @@ const EditorContainer = styled.div<Props>`
   ${codeBlockStyle}
   ${findAndReplaceStyle}
   ${emailStyle}
+  ${textStyle}
 `;
 
 export default EditorContainer;

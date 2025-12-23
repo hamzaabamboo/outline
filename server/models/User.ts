@@ -1,16 +1,15 @@
 import crypto from "crypto";
 import { addHours, addMinutes, subMinutes } from "date-fns";
 import JWT from "jsonwebtoken";
-import { Context } from "koa";
-import {
+import type { Context } from "koa";
+import type {
   Transaction,
-  QueryTypes,
   SaveOptions,
-  Op,
   FindOptions,
   InferAttributes,
   InferCreationAttributes,
 } from "sequelize";
+import { QueryTypes, Op } from "sequelize";
 import { type InstanceUpdateOptions } from "sequelize";
 import {
   Table,
@@ -33,23 +32,25 @@ import {
 } from "sequelize-typescript";
 import { UserPreferenceDefaults } from "@shared/constants";
 import { languages } from "@shared/i18n";
-import type { NotificationSettings } from "@shared/types";
-import {
-  CollectionPermission,
+import type {
+  NotificationSettings,
   UserPreference,
   UserPreferences,
   NotificationEventType,
+} from "@shared/types";
+import {
+  CollectionPermission,
   NotificationEventDefaults,
   UserRole,
   DocumentPermission,
 } from "@shared/types";
 import { UserRoleHelper } from "@shared/utils/UserRoleHelper";
 import { stringToColor } from "@shared/utils/color";
-import { locales } from "@shared/utils/date";
+import type { locales } from "@shared/utils/date";
 import { UserValidation } from "@shared/validations";
 import env from "@server/env";
 import DeleteAttachmentTask from "@server/queues/tasks/DeleteAttachmentTask";
-import { APIContext } from "@server/types";
+import type { APIContext } from "@server/types";
 import { VerificationCode } from "@server/utils/VerificationCode";
 import parseAttachmentIds from "@server/utils/parseAttachmentIds";
 import { ValidationError } from "../errors";
@@ -77,6 +78,7 @@ export enum UserFlag {
   Desktop = "desktop",
   DesktopWeb = "desktopWeb",
   MobileWeb = "mobileWeb",
+  AvatarUpdated = "avatarUpdated",
 }
 
 @Scopes(() => ({
@@ -762,7 +764,7 @@ class User extends ParanoidModel<
       previousRole &&
       model.changed("role") &&
       UserRoleHelper.isRoleLower(model.role, UserRole.Member) &&
-      UserRoleHelper.isRoleHigher(previousRole, UserRole.Viewer)
+      !UserRoleHelper.isRoleLower(previousRole, UserRole.Viewer)
     ) {
       await UserMembership.update(
         {

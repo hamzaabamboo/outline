@@ -1,9 +1,9 @@
 import { subMinutes } from "date-fns";
 import JWT from "jsonwebtoken";
-import { FindOptions } from "sequelize";
+import type { FindOptions } from "sequelize";
 import { Team, User } from "@server/models";
-import { AuthenticationError } from "../errors";
-import { Context } from "koa";
+import { AuthenticationError, UserSuspendedError } from "../errors";
+import type { Context } from "koa";
 
 export function getJWTPayload(token: string) {
   let payload;
@@ -52,6 +52,15 @@ export async function getUserForJWT(
   });
   if (!user) {
     throw AuthenticationError("Invalid token");
+  }
+
+  if (user.isSuspended) {
+    const suspendingAdmin = user.suspendedById
+      ? await User.findByPk(user.suspendedById)
+      : undefined;
+    throw UserSuspendedError({
+      adminEmail: suspendingAdmin?.email || undefined,
+    });
   }
 
   if (payload.type === "transfer") {

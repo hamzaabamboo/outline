@@ -5,7 +5,7 @@ import * as React from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import Group from "~/models/Group";
-import User from "~/models/User";
+import type User from "~/models/User";
 import Invite from "~/scenes/Invite";
 import { Avatar, AvatarSize } from "~/components/Avatar";
 import Badge from "~/components/Badge";
@@ -27,8 +27,10 @@ import useRequest from "~/hooks/useRequest";
 import useStores from "~/hooks/useStores";
 import InputMemberPermissionSelect from "~/components/InputMemberPermissionSelect";
 import { GroupPermission } from "@shared/types";
-import { EmptySelectValue, Permission } from "~/types";
-import GroupUser from "~/models/GroupUser";
+import { GroupValidation } from "@shared/validations";
+import type { Permission } from "~/types";
+import { EmptySelectValue } from "~/types";
+import type GroupUser from "~/models/GroupUser";
 import Switch from "~/components/Switch";
 
 type Props = {
@@ -40,6 +42,7 @@ export function CreateGroupDialog() {
   const { dialogs, groups } = useStores();
   const { t } = useTranslation();
   const [name, setName] = React.useState<string | undefined>();
+  const [description, setDescription] = React.useState<string | undefined>();
   const [isSaving, setIsSaving] = React.useState(false);
 
   const handleSubmit = React.useCallback(
@@ -50,6 +53,7 @@ export function CreateGroupDialog() {
       const group = new Group(
         {
           name,
+          description,
         },
         groups
       );
@@ -67,7 +71,7 @@ export function CreateGroupDialog() {
         setIsSaving(false);
       }
     },
-    [t, dialogs, groups, name]
+    [t, dialogs, groups, name, description]
   );
 
   return (
@@ -79,7 +83,7 @@ export function CreateGroupDialog() {
           example.
         </Trans>
       </Text>
-      <Flex>
+      <Flex column>
         <Input
           type="text"
           label="Name"
@@ -87,6 +91,15 @@ export function CreateGroupDialog() {
           value={name}
           required
           autoFocus
+          flex
+        />
+        <Input
+          type="textarea"
+          label="Description"
+          placeholder={t("Optional")}
+          onChange={(e) => setDescription(e.target.value)}
+          value={description || ""}
+          maxLength={GroupValidation.maxDescriptionLength}
           flex
         />
       </Flex>
@@ -104,6 +117,7 @@ export function CreateGroupDialog() {
 export function EditGroupDialog({ group, onSubmit }: Props) {
   const { t } = useTranslation();
   const [name, setName] = React.useState(group.name);
+  const [description, setDescription] = React.useState(group.description || "");
   const [disableMentions, setDisableMentions] = React.useState(
     group.disableMentions || false
   );
@@ -116,6 +130,7 @@ export function EditGroupDialog({ group, onSubmit }: Props) {
       try {
         await group.save({
           name,
+          description,
           disableMentions,
         });
         onSubmit();
@@ -125,7 +140,7 @@ export function EditGroupDialog({ group, onSubmit }: Props) {
         setIsSaving(false);
       }
     },
-    [group, onSubmit, name, disableMentions]
+    [group, onSubmit, name, description, disableMentions]
   );
 
   const handleNameChange = React.useCallback(
@@ -151,6 +166,15 @@ export function EditGroupDialog({ group, onSubmit }: Props) {
           value={name}
           required
           autoFocus
+          flex
+        />
+        <Input
+          type="textarea"
+          label={t("Description")}
+          placeholder={t("Optional")}
+          onChange={(e) => setDescription(e.target.value)}
+          value={description}
+          maxLength={GroupValidation.maxDescriptionLength}
           flex
         />
         <Switch

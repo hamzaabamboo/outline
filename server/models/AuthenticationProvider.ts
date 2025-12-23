@@ -1,4 +1,5 @@
-import { InferAttributes, InferCreationAttributes, Op } from "sequelize";
+import type { InferAttributes, InferCreationAttributes } from "sequelize";
+import { Op } from "sequelize";
 import {
   BelongsTo,
   Column,
@@ -23,7 +24,7 @@ import Length from "./validators/Length";
 import AzureClient from "plugins/azure/server/azure";
 import GoogleClient from "plugins/google/server/google";
 import OIDCClient from "plugins/oidc/server/oidc";
-import { APIContext } from "@server/types";
+import type { APIContext } from "@server/types";
 
 @Scopes(() => ({
   withUserAuthentication: (userId: string) => ({
@@ -111,10 +112,16 @@ class AuthenticationProvider extends Model<
   disable: (ctx: APIContext) => Promise<AuthenticationProvider> = async (
     ctx
   ) => {
-    const res = await (
+    const { transaction } = ctx.state;
+    if (!transaction) {
+      throw new Error("Transaction required");
+    }
+
+    const otherEnabledProviders = await (
       this.constructor as typeof AuthenticationProvider
-    ).findAndCountAll({
-      transaction: ctx.transaction,
+    ).findAll({
+      transaction,
+      lock: transaction.LOCK.SHARE,
       where: {
         teamId: this.teamId,
         enabled: true,
@@ -125,7 +132,7 @@ class AuthenticationProvider extends Model<
       limit: 1,
     });
 
-    if (res.count >= 1) {
+    if (otherEnabledProviders.length >= 1) {
       return this.updateWithCtx(ctx, {
         enabled: false,
       });

@@ -2,9 +2,8 @@ import { useCallback } from "react";
 import useDictionary from "~/hooks/useDictionary";
 import getMenuItems from "../menus/block";
 import { useEditor } from "./EditorContext";
-import SuggestionsMenu, {
-  Props as SuggestionsMenuProps,
-} from "./SuggestionsMenu";
+import type { Props as SuggestionsMenuProps } from "./SuggestionsMenu";
+import SuggestionsMenu from "./SuggestionsMenu";
 import SuggestionsMenuItem from "./SuggestionsMenuItem";
 
 type Props = Omit<SuggestionsMenuProps, "renderMenuItem" | "items"> &
@@ -17,8 +16,7 @@ function BlockMenu(props: Props) {
   const renderMenuItem = useCallback(
     (item, _index, options) => (
       <SuggestionsMenuItem
-        onClick={options.onClick}
-        selected={options.selected}
+        {...options}
         icon={item.icon}
         title={item.title}
         shortcut={item.shortcut}

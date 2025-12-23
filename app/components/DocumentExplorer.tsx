@@ -16,8 +16,9 @@ import scrollIntoView from "scroll-into-view-if-needed";
 import styled, { useTheme } from "styled-components";
 import breakpoint from "styled-components-breakpoint";
 import Icon from "@shared/components/Icon";
-import { NavigationNode } from "@shared/types";
+import type { NavigationNode } from "@shared/types";
 import { isModKey } from "@shared/utils/keyboard";
+import { ancestors, descendants, flattenTree } from "@shared/utils/tree";
 import DocumentExplorerNode from "~/components/DocumentExplorerNode";
 import DocumentExplorerSearchResult from "~/components/DocumentExplorerSearchResult";
 import Flex from "~/components/Flex";
@@ -27,7 +28,6 @@ import InputSearch from "~/components/InputSearch";
 import Text from "~/components/Text";
 import useMobile from "~/hooks/useMobile";
 import useStores from "~/hooks/useStores";
-import { ancestors, descendants, flattenTree } from "~/utils/tree";
 
 type Props = {
   /** Action taken upon submission of selected item, could be publish, move etc. */
@@ -268,7 +268,9 @@ function DocumentExplorer({ onSubmit, onSelect, items, defaultValue }: Props) {
         title = doc?.title ?? node.title;
 
         if (icon) {
-          renderedIcon = <Icon value={icon} color={color} />;
+          renderedIcon = (
+            <Icon value={icon} initial={node.title} color={color} />
+          );
         } else if (doc?.isStarred) {
           renderedIcon = <StarredIcon color={theme.yellow} />;
         } else {

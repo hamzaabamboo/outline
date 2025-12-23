@@ -1,12 +1,11 @@
 import { observer } from "mobx-react";
 import * as Dialog from "@radix-ui/react-dialog";
-import styled, { css, Keyframes, keyframes } from "styled-components";
+import type { Keyframes } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
+import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import {
-  ComponentProps,
   createContext,
   forwardRef,
-  HTMLAttributes,
-  ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -25,6 +24,7 @@ import {
   NextIcon,
   ZoomInIcon,
   ZoomOutIcon,
+  EditIcon,
 } from "outline-icons";
 import { depths, extraArea, s } from "@shared/styles";
 import NudeButton from "./NudeButton";
@@ -41,15 +41,19 @@ import { Separator } from "./Actions";
 import useSwipe from "~/hooks/useSwipe";
 import { toast } from "sonner";
 import { findIndex } from "lodash";
-import { LightboxImage } from "@shared/editor/lib/Lightbox";
+import type { LightboxImage } from "@shared/editor/lib/Lightbox";
+import type { ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import {
   TransformWrapper,
   TransformComponent,
   useTransformEffect,
-  ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
 import { transparentize } from "polished";
 import { mergeRefs } from "react-merge-refs";
+import { useEditor } from "~/editor/components/EditorContext";
+import { NodeSelection } from "prosemirror-state";
+import { ImageSource } from "@shared/editor/lib/FileHelper";
+import Desktop from "~/utils/Desktop";
 
 export enum LightboxStatus {
   READY_TO_OPEN,
@@ -86,7 +90,7 @@ const ANIMATION_DURATION = 0.3 * Second.ms;
 type Props = {
   /** List of allowed images */
   images: LightboxImage[];
-  /** The position of the currently active image in the document */
+  /** The currently active image in the document */
   activeImage: LightboxImage;
   /** Callback triggered when the active image is updated */
   onUpdate: (activeImage: LightboxImage | null) => void;
@@ -225,10 +229,11 @@ function Lightbox({ images, activeImage, onUpdate, onClose }: Props) {
     height: number;
   } | null>(null);
   const zoomPanPinchRef = useRef<ReactZoomPanPinchRef>(null);
+  const editor = useEditor();
 
   const currentImageIndex = findIndex(
     images,
-    (img) => img.getPos() === activeImage.getPos()
+    (img) => img.pos === activeImage.pos
   );
 
   // Debugging status changes
@@ -617,9 +622,9 @@ function Lightbox({ images, activeImage, onUpdate, onClose }: Props) {
     URL.revokeObjectURL(imageURL);
   };
 
-  const download = useCallback(() => {
+  const handleDownload = useCallback(() => {
     if (activeImage && status.lightbox === LightboxStatus.OPENED) {
-      void downloadImage(activeImage.getSrc(), activeImage.getAlt());
+      void downloadImage(activeImage.src, activeImage.alt);
     }
   }, [activeImage, status.lightbox]);
 
@@ -668,6 +673,17 @@ function Lightbox({ images, activeImage, onUpdate, onClose }: Props) {
         image: null,
       });
     }
+  };
+
+  const handleEditDiagram = () => {
+    const { state, dispatch } = editor.view;
+
+    // Select the node at the position
+    const tr = state.tr.setSelection(
+      NodeSelection.create(state.doc, activeImage.pos)
+    );
+    dispatch(tr);
+    editor.commands.editDiagram();
   };
 
   return (
@@ -745,7 +761,7 @@ function Lightbox({ images, activeImage, onUpdate, onClose }: Props) {
               <ActionButton
                 tabIndex={-1}
                 disabled={status.image === ImageStatus.ERROR}
-                onClick={download}
+                onClick={handleDownload}
                 aria-label={t("Download")}
                 size={32}
                 icon={<DownloadIcon />}
@@ -753,6 +769,21 @@ function Lightbox({ images, activeImage, onUpdate, onClose }: Props) {
                 neutral
               />
             </Tooltip>
+            {activeImage.source === ImageSource.DiagramsNet &&
+              !Desktop.isElectron() && (
+                <Tooltip content={t("Edit diagram")} placement="bottom">
+                  <ActionButton
+                    tabIndex={-1}
+                    disabled={status.image === ImageStatus.ERROR}
+                    onClick={handleEditDiagram}
+                    aria-label={t("Edit diagram")}
+                    size={32}
+                    icon={<EditIcon />}
+                    borderOnHover
+                    neutral
+                  />
+                </Tooltip>
+              )}
             <Separator />
             <Dialog.Close asChild>
               <Tooltip content={t("Close")} shortcut="Esc" placement="bottom">
@@ -792,8 +823,8 @@ function Lightbox({ images, activeImage, onUpdate, onClose }: Props) {
           >
             <Image
               ref={imgRef}
-              src={activeImage.getSrc()}
-              alt={activeImage.getAlt()}
+              src={activeImage.src}
+              alt={activeImage.alt}
               onLoading={() =>
                 setStatus({
                   lightbox: status.lightbox,
@@ -872,7 +903,7 @@ type ImageProps = {
   onMaxZoom: () => void;
 };
 
-const Image = forwardRef<HTMLImageElement, ImageProps>(function _Image(
+const Image = forwardRef<HTMLImageElement, ImageProps>(function Image_(
   {
     src,
     alt,

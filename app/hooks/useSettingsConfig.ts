@@ -1,3 +1,4 @@
+import type { Icon } from "outline-icons";
 import {
   EmailIcon,
   ProfileIcon,
@@ -12,11 +13,12 @@ import {
   ExportIcon,
   ImportIcon,
   ShapesIcon,
-  Icon,
   PlusIcon,
   InternetIcon,
+  SmileyIcon,
 } from "outline-icons";
-import { ComponentProps, useEffect } from "react";
+import type { ComponentProps } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { integrationSettingsPath } from "@shared/utils/routeHelpers";
 import { createLazyComponent as lazy } from "~/components/LazyLoad";
@@ -44,6 +46,7 @@ const Profile = lazy(() => import("~/scenes/Settings/Profile"));
 const Security = lazy(() => import("~/scenes/Settings/Security"));
 const Shares = lazy(() => import("~/scenes/Settings/Shares"));
 const Templates = lazy(() => import("~/scenes/Settings/Templates"));
+const CustomEmojis = lazy(() => import("~/scenes/Settings/CustomEmojis"));
 
 export type ConfigItem = {
   name: string;
@@ -158,9 +161,18 @@ const useSettingsConfig = () => {
         path: settingsPath("templates"),
         component: Templates.Component,
         preload: Templates.preload,
-        enabled: can.updateTemplate,
+        enabled: can.createTemplate,
         group: t("Workspace"),
         icon: ShapesIcon,
+      },
+      {
+        name: t("Emojis"),
+        path: settingsPath("emojis"),
+        component: CustomEmojis.Component,
+        preload: CustomEmojis.preload,
+        enabled: can.update,
+        group: t("Workspace"),
+        icon: SmileyIcon,
       },
       {
         name: t("API Keys"),

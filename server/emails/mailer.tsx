@@ -1,6 +1,7 @@
-import { EmailAddress } from "addressparser";
-import nodemailer, { Transporter } from "nodemailer";
-import SMTPTransport from "nodemailer/lib/smtp-transport";
+import type { EmailAddress } from "addressparser";
+import type { Transporter } from "nodemailer";
+import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import Oy from "oy-vey";
 import env from "@server/env";
 import { InternalError } from "@server/errors";
@@ -224,8 +225,8 @@ export class Mailer {
             pass: env.SMTP_PASSWORD,
           }
         : undefined,
-      // Disable STARTTLS entirely when secure is set to false
-      ignoreTLS: !env.SMTP_SECURE,
+      // Disable STARTTLS entirely when SMTP_DISABLE_STARTTLS is set to true
+      ignoreTLS: env.SMTP_DISABLE_STARTTLS,
       tls: env.SMTP_SECURE
         ? env.SMTP_TLS_CIPHERS
           ? {
