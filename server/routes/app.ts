@@ -15,6 +15,7 @@ import { getTeamFromContext } from "@server/utils/passport";
 import prefetchTags from "@server/utils/prefetchTags";
 import readManifestFile from "@server/utils/readManifestFile";
 import { loadPublicShare } from "@server/commands/shareLoader";
+import parseImages from "@server/utils/parseImages";
 
 const readFile = util.promisify(fs.readFile);
 const entry = "app/index.tsx";
@@ -53,6 +54,7 @@ export const renderApp = async (
     content?: string;
     canonical?: string;
     shortcutIcon?: string;
+    ogImage?: string;
     rootShareId?: string;
     isShare?: boolean;
     analytics?: Integration<IntegrationType.Analytics>[];
@@ -124,6 +126,10 @@ export const renderApp = async (
 
   if (options.isShare) {
     headTags += `
+    <meta property="og:title" content="${escape(title)}" />
+    <meta property="og:description" content="${escape(description)}" />
+    <meta property="og:type" content="article" />
+    ${options.ogImage ? `<meta property="og:image" content="${escape(options.ogImage)}" />` : ""}
     <link rel="sitemap" type="application/xml" href="/api/shares.sitemap?id=${escape(options.rootShareId || shareId)}">
     `;
   } else {
@@ -256,7 +262,10 @@ export const renderShare = async (ctx: Context, next: Next) => {
         }`
       : undefined;
 
-  // Inject share information in SSR HTML
+  const firstImage = document?.text
+    ? parseImages(document.text)[0]?.src
+    : undefined;
+
   return renderApp(ctx, next, {
     title,
     description:
@@ -265,6 +274,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
     content,
     shortcutIcon:
       publicBranding && team?.avatarUrl ? team.avatarUrl : undefined,
+    ogImage: firstImage,
     analytics,
     isShare: true,
     rootShareId,
