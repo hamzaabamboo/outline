@@ -130,6 +130,10 @@ export const renderApp = async (
     <meta property="og:description" content="${escape(description)}" />
     <meta property="og:type" content="article" />
     ${options.ogImage ? `<meta property="og:image" content="${escape(options.ogImage)}" />` : ""}
+    <meta name="twitter:card" content="${options.ogImage ? "summary_large_image" : "summary"}" />
+    <meta name="twitter:title" content="${escape(title)}" />
+    <meta name="twitter:description" content="${escape(description)}" />
+    ${options.ogImage ? `<meta name="twitter:image" content="${escape(options.ogImage)}" />` : ""}
     <link rel="sitemap" type="application/xml" href="/api/shares.sitemap?id=${escape(options.rootShareId || shareId)}">
     `;
   } else {
