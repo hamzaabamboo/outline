@@ -787,7 +787,6 @@ export class Environment {
       "https://app.getoutline.com",
       "https://app.outline.dev",
       "https://app.outline.dev:3000",
-      "https://notes.ham-san.net",
     ].includes(this.URL);
   }
 
