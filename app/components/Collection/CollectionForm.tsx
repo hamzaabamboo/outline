@@ -13,7 +13,7 @@ import { colorPalette } from "@shared/utils/collections";
 import { CollectionValidation } from "@shared/validations";
 import type Collection from "~/models/Collection";
 import Button from "~/components/Button";
-import Flex from "~/components/Flex";
+import { Collapsible } from "~/components/Collapsible";
 import Input from "~/components/Input";
 import { InputSelectPermission } from "~/components/InputSelectPermission";
 import { createLazyComponent } from "~/components/LazyLoad";
@@ -23,6 +23,7 @@ import useBoolean from "~/hooks/useBoolean";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import useStores from "~/hooks/useStores";
 import { EmptySelectValue } from "~/types";
+import { HStack } from "../primitives/HStack";
 
 const IconPicker = createLazyComponent(() => import("~/components/IconPicker"));
 
@@ -141,10 +142,10 @@ export const CollectionForm = observer(function CollectionForm_({
           Collections are used to group documents and choose permissions
         </Trans>
       </Text>
-      <Flex gap={8}>
+      <HStack>
         <Input
           type="text"
-          placeholder={t("Name")}
+          label={t("Name")}
           {...register("name", {
             required: true,
             maxLength: CollectionValidation.maxNameLength,
@@ -165,7 +166,7 @@ export const CollectionForm = observer(function CollectionForm_({
           autoFocus
           flex
         />
-      </Flex>
+      </HStack>
 
       {/* Following controls are available in create flow, but moved elsewhere for edit */}
       {!collection && (
@@ -189,41 +190,47 @@ export const CollectionForm = observer(function CollectionForm_({
         />
       )}
 
-      {team.sharing && (
-        <Controller
-          control={control}
-          name="sharing"
-          render={({ field }) => (
-            <Switch
-              id="sharing"
-              label={t("Public document sharing")}
-              note={t(
-                "Allow documents within this collection to be shared publicly on the internet."
+      {(team.sharing || team.getPreference(TeamPreference.Commenting)) && (
+        <Collapsible label={t("Advanced options")}>
+          {team.sharing && (
+            <Controller
+              control={control}
+              name="sharing"
+              render={({ field }) => (
+                <Switch
+                  id="sharing"
+                  label={t("Public document sharing")}
+                  note={t(
+                    "Allow documents within this collection to be shared publicly on the internet."
+                  )}
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
               )}
-              checked={field.value}
-              onChange={field.onChange}
             />
           )}
-        />
-      )}
 
-      {team.getPreference(TeamPreference.Commenting) && (
-        <Controller
-          control={control}
-          name="commenting"
-          render={({ field }) => (
-            <Switch
-              id="commenting"
-              label={t("Commenting")}
-              note={t("Allow commenting on documents within this collection.")}
-              checked={!!field.value}
-              onChange={field.onChange}
+          {team.getPreference(TeamPreference.Commenting) && (
+            <Controller
+              control={control}
+              name="commenting"
+              render={({ field }) => (
+                <Switch
+                  id="commenting"
+                  label={t("Commenting")}
+                  note={t(
+                    "Allow commenting on documents within this collection."
+                  )}
+                  checked={!!field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
           )}
-        />
+        </Collapsible>
       )}
 
-      <Flex justify="flex-end">
+      <HStack justify="flex-end">
         <Button
           type="submit"
           disabled={formState.isSubmitting || !formState.isValid}
@@ -236,7 +243,7 @@ export const CollectionForm = observer(function CollectionForm_({
               ? `${t("Creating")}…`
               : t("Create")}
         </Button>
-      </Flex>
+      </HStack>
     </form>
   );
 });

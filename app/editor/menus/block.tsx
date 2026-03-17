@@ -23,6 +23,7 @@ import {
   DoneIcon,
   EmbedIcon,
   LinkIcon,
+  CollapseIcon,
 } from "outline-icons";
 import * as React from "react";
 import styled from "styled-components";
@@ -133,6 +134,7 @@ export default function blockMenuItems(
         accept: "application/pdf",
         width: 300,
         height: 424,
+        preview: true,
       },
     },
     {
@@ -170,6 +172,12 @@ export default function blockMenuItems(
       title: dictionary.mathBlock,
       icon: <MathIcon />,
       keywords: "math katex latex",
+    },
+    {
+      name: "container_toggle",
+      title: dictionary.toggleBlock,
+      icon: <CollapseIcon />,
+      keywords: "toggle collapsible collapse fold",
     },
     {
       name: "hr",
@@ -242,7 +250,7 @@ export default function blockMenuItems(
       title: "Mermaid Diagram",
       icon: <Img src="/images/mermaidjs.png" alt="Mermaid Diagram" />,
       keywords: "diagram flowchart",
-      attrs: { language: "mermaidjs" },
+      attrs: { language: "mermaid" },
     },
     {
       name: "editDiagram",

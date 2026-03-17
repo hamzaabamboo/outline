@@ -123,10 +123,7 @@ declare module "styled-components" {
   }
 
   export interface DefaultTheme
-    extends Colors,
-      Spacing,
-      Breakpoints,
-      EditorTheme {
+    extends Colors, Spacing, Breakpoints, EditorTheme {
     background: string;
     backgroundSecondary: string;
     backgroundTertiary: string;
@@ -162,6 +159,7 @@ declare module "styled-components" {
     titleBarDivider: string;
     inputBorder: string;
     inputBorderFocused: string;
+    inputBackground: string;
     listItemHoverBackground: string;
     mentionBackground: string;
     mentionHoverBackground: string;

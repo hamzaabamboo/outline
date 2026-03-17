@@ -1,4 +1,9 @@
-import { DocumentPermission, StatusFilter } from "@shared/types";
+import {
+  DirectionFilter,
+  DocumentPermission,
+  SortFilter,
+  StatusFilter,
+} from "@shared/types";
 import SearchHelper from "@server/models/helpers/SearchHelper";
 import {
   buildDocument,
@@ -1061,6 +1066,285 @@ describe("SearchHelper", () => {
       expect(results.length).toBe(2);
       expect(results[0].id).toBe(collection1.id);
       expect(results[1].id).toBe(collection2.id);
+    });
+  });
+
+  describe("sorting", () => {
+    it("should sort search results by title ascending", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const collection = await buildCollection({
+        teamId: team.id,
+        userId: user.id,
+      });
+      const doc1 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Zebra Document",
+      });
+      const doc2 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Alpha Document",
+      });
+      const doc3 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Beta Document",
+      });
+
+      const { results } = await SearchHelper.searchForUser(user, {
+        sort: SortFilter.Title,
+        direction: DirectionFilter.ASC,
+      });
+
+      expect(results.length).toBe(3);
+      expect(results[0].document.id).toBe(doc2.id);
+      expect(results[1].document.id).toBe(doc3.id);
+      expect(results[2].document.id).toBe(doc1.id);
+    });
+
+    it("should sort search results by title descending", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const collection = await buildCollection({
+        teamId: team.id,
+        userId: user.id,
+      });
+      const doc1 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Zebra Document",
+      });
+      const doc2 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Alpha Document",
+      });
+      const doc3 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Beta Document",
+      });
+
+      const { results } = await SearchHelper.searchForUser(user, {
+        sort: SortFilter.Title,
+        direction: DirectionFilter.DESC,
+      });
+
+      expect(results.length).toBe(3);
+      expect(results[0].document.id).toBe(doc1.id);
+      expect(results[1].document.id).toBe(doc3.id);
+      expect(results[2].document.id).toBe(doc2.id);
+    });
+
+    it("should sort search results by createdAt ascending", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const collection = await buildCollection({
+        teamId: team.id,
+        userId: user.id,
+      });
+      const doc1 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "First Document",
+        createdAt: new Date("2023-01-01"),
+        updatedAt: new Date("2023-12-03"),
+      });
+      const doc2 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Second Document",
+        createdAt: new Date("2023-06-01"),
+        updatedAt: new Date("2023-12-02"),
+      });
+      const doc3 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Third Document",
+        createdAt: new Date("2023-12-01"),
+        updatedAt: new Date("2023-12-01"),
+      });
+
+      const { results } = await SearchHelper.searchForUser(user, {
+        sort: SortFilter.CreatedAt,
+        direction: DirectionFilter.ASC,
+      });
+
+      expect(results.length).toBe(3);
+      expect(results[0].document.id).toBe(doc1.id);
+      expect(results[1].document.id).toBe(doc2.id);
+      expect(results[2].document.id).toBe(doc3.id);
+    });
+
+    it("should sort search results by updatedAt descending by default", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const collection = await buildCollection({
+        teamId: team.id,
+        userId: user.id,
+      });
+      const doc1 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Document 1",
+        updatedAt: new Date("2023-01-01"),
+      });
+      const doc2 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Document 2",
+        updatedAt: new Date("2023-12-01"),
+      });
+      const doc3 = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "Document 3",
+        updatedAt: new Date("2023-06-01"),
+      });
+
+      const { results } = await SearchHelper.searchForUser(user);
+
+      expect(results.length).toBe(3);
+      expect(results[0].document.id).toBe(doc2.id);
+      expect(results[1].document.id).toBe(doc3.id);
+      expect(results[2].document.id).toBe(doc1.id);
+    });
+
+    it("should order results by search ranking when query is provided and no explicit sort", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const collection = await buildCollection({
+        teamId: team.id,
+        userId: user.id,
+      });
+
+      // Create a document with a less relevant title but more recent updatedAt
+      const recentDoc = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "unrelated recent",
+        text: "This document mentions search only once",
+        updatedAt: new Date("2025-12-01"),
+      });
+
+      // Create a document with a highly relevant title but older updatedAt
+      const relevantDoc = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "search search search",
+        text: "search search search search search",
+        updatedAt: new Date("2023-01-01"),
+      });
+
+      const { results } = await SearchHelper.searchForUser(user, {
+        query: "search",
+      });
+
+      expect(results.length).toBe(2);
+      // The more relevant document should come first, despite being older
+      expect(results[0].document.id).toBe(relevantDoc.id);
+      expect(results[1].document.id).toBe(recentDoc.id);
+    });
+
+    it("should use explicit sort over search ranking when sort is provided", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const collection = await buildCollection({
+        teamId: team.id,
+        userId: user.id,
+      });
+
+      await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "search search search",
+        text: "search search search search search",
+        updatedAt: new Date("2023-01-01"),
+      });
+
+      const recentDoc = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        userId: user.id,
+        title: "unrelated recent",
+        text: "This document mentions search only once",
+        updatedAt: new Date("2025-12-01"),
+      });
+
+      const { results } = await SearchHelper.searchForUser(user, {
+        query: "search",
+        sort: SortFilter.UpdatedAt,
+        direction: DirectionFilter.DESC,
+      });
+
+      expect(results.length).toBe(2);
+      // With explicit sort, updatedAt should take priority
+      expect(results[0].document.id).toBe(recentDoc.id);
+    });
+  });
+
+  describe("popularity boost", () => {
+    it("should not apply popularity boost when usePopularityBoost is false", async () => {
+      const team = await buildTeam();
+      const collection = await buildCollection({
+        teamId: team.id,
+      });
+
+      // Create a less relevant document with a high popularity score
+      await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        title: "guide",
+        text: "This is a guide that mentions testing once",
+        popularityScore: 1000,
+      });
+
+      // Create a highly relevant document with no popularity
+      const relevantDoc = await buildDocument({
+        teamId: team.id,
+        collectionId: collection.id,
+        title: "testing testing testing",
+        text: "testing testing testing testing testing",
+        popularityScore: 0,
+      });
+
+      // Without popularity boost, pure relevance should win
+      const { results: withoutBoost } = await SearchHelper.searchForTeam(team, {
+        query: "testing",
+        usePopularityBoost: false,
+      });
+
+      expect(withoutBoost.length).toBe(2);
+      expect(withoutBoost[0].document.id).toBe(relevantDoc.id);
+
+      // With popularity boost, the popular document may rank higher
+      const { results: withBoost } = await SearchHelper.searchForTeam(team, {
+        query: "testing",
+        usePopularityBoost: true,
+      });
+
+      expect(withBoost.length).toBe(2);
+      // The popular document should have a higher ranking with boost
+      expect(withBoost[0].ranking).toBeGreaterThanOrEqual(
+        withoutBoost[0].ranking
+      );
     });
   });
 

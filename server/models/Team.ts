@@ -1,5 +1,5 @@
-import crypto from "crypto";
-import { URL } from "url";
+import crypto from "node:crypto";
+import { URL } from "node:url";
 import { subMinutes } from "date-fns";
 import type { InferAttributes, InferCreationAttributes } from "sequelize";
 import { type SaveOptions } from "sequelize";
@@ -49,6 +49,13 @@ import IsUrlOrRelativePath from "./validators/IsUrlOrRelativePath";
 import Length from "./validators/Length";
 import NotContainsUrl from "./validators/NotContainsUrl";
 import { SkipChangeset } from "./decorators/Changeset";
+
+/**
+ * Flags that are available for setting on the team.
+ */
+export enum TeamFlag {
+  MarkedSafe = "markedSafe",
+}
 
 @Scopes(() => ({
   withDomains: {
@@ -155,6 +162,10 @@ class Team extends ParanoidModel<
 
   @Default(true)
   @Column
+  passkeysEnabled: boolean;
+
+  @Default(true)
+  @Column
   documentEmbeds: boolean;
 
   @Default(true)
@@ -183,6 +194,9 @@ class Team extends ParanoidModel<
   @IsDate
   @Column
   suspendedAt: Date | null;
+
+  @Column(DataType.JSONB)
+  flags: { [key in TeamFlag]?: number } | null;
 
   @IsDate
   @Column
@@ -277,6 +291,56 @@ class Team extends ParanoidModel<
     this.preferences?.[preference] ??
     TeamPreferenceDefaults[preference] ??
     false;
+
+  /**
+   * Team flags are for storing information on a team record that is not visible
+   * to the team members.
+   *
+   * @param flag The flag to set
+   * @param value Set the flag to true/false
+   * @returns The current team flags
+   */
+  public setFlag = (flag: TeamFlag, value = true) => {
+    if (!this.flags) {
+      this.flags = {};
+    }
+    const binary = value ? 1 : 0;
+    if (this.flags[flag] !== binary) {
+      this.flags = {
+        ...this.flags,
+        [flag]: binary,
+      };
+    }
+
+    return this.flags;
+  };
+
+  /**
+   * Returns the content of the given team flag.
+   *
+   * @param flag The flag to retrieve
+   * @returns The flag value
+   */
+  public getFlag = (flag: TeamFlag) => this.flags?.[flag] ?? 0;
+
+  /**
+   * Team flags are for storing information on a team record that is not visible
+   * to the team members.
+   *
+   * @param flag The flag to set
+   * @param value The amount to increment by, defaults to 1
+   * @returns The current team flags
+   */
+  public incrementFlag = (flag: TeamFlag, value = 1) => {
+    if (!this.flags) {
+      this.flags = {};
+    }
+    this.flags = {
+      ...this.flags,
+      [flag]: (this.flags[flag] ?? 0) + value,
+    };
+    return this.flags;
+  };
 
   /**
    * Updates the lastActiveAt timestamp to the current time.

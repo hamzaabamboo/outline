@@ -1,4 +1,4 @@
-import path from "path";
+import path from "node:path";
 import { glob } from "glob";
 import type Router from "koa-router";
 import isArray from "lodash/isArray";
@@ -10,6 +10,7 @@ import type BaseProcessor from "@server/queues/processors/BaseProcessor";
 import type { BaseTask } from "@server/queues/tasks/base/BaseTask";
 import type { UnfurlSignature, UninstallSignature } from "@server/types";
 import type { BaseIssueProvider } from "./BaseIssueProvider";
+import type { GroupSyncProvider } from "./GroupSyncProvider";
 
 export enum PluginPriority {
   VeryHigh = 0,
@@ -31,6 +32,7 @@ export enum Hook {
   Task = "task",
   UnfurlProvider = "unfurl",
   Uninstall = "uninstall",
+  GroupSyncProvider = "groupSyncProvider",
 }
 
 /**
@@ -40,12 +42,13 @@ export enum Hook {
 type PluginValueMap = {
   [Hook.API]: Router;
   [Hook.AuthProvider]: { router: Router | Promise<Router>; id: string };
-  [Hook.EmailTemplate]: typeof BaseEmail;
+  [Hook.EmailTemplate]: typeof BaseEmail<any>;
   [Hook.IssueProvider]: BaseIssueProvider;
   [Hook.Processor]: typeof BaseProcessor;
   [Hook.Task]: typeof BaseTask<any>;
   [Hook.Uninstall]: UninstallSignature;
   [Hook.UnfurlProvider]: { unfurl: UnfurlSignature; cacheExpiry: number };
+  [Hook.GroupSyncProvider]: { id: string; provider: GroupSyncProvider };
 };
 
 export type Plugin<T extends Hook> = {
@@ -110,6 +113,19 @@ export class PluginManager {
   public static getHooks<T extends Hook>(type: T) {
     this.loadPlugins();
     return sortBy(this.plugins.get(type) || [], "priority") as Plugin<T>[];
+  }
+
+  /**
+   * Returns the GroupSyncProvider for the given authentication provider name.
+   *
+   * @param name - the authentication provider name (e.g. "oidc", "google").
+   * @returns the GroupSyncProvider if one is registered, undefined otherwise.
+   */
+  public static getGroupSyncProvider(
+    name: string
+  ): GroupSyncProvider | undefined {
+    const hooks = this.getHooks(Hook.GroupSyncProvider);
+    return hooks.find((h) => h.value.id === name)?.value.provider;
   }
 
   /**
