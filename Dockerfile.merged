@@ -1,13 +1,14 @@
 ARG APP_PATH=/opt/outline
 FROM node:20-alpine AS base
 
+RUN corepack enable
+
 ARG APP_PATH
 WORKDIR $APP_PATH
-COPY ./package.json ./yarn.lock ./
+COPY ./package.json ./yarn.lock ./.yarnrc.yml ./
 COPY ./patches ./patches
 
-RUN yarn install --no-optional --frozen-lockfile --network-timeout 1000000 && \
-  yarn cache clean
+RUN yarn install --immutable --network-timeout 1000000
 
 ENV GENERATE_SOURCEMAP false
 ENV NODE_OPTIONS --max-old-space-size=16384
@@ -18,13 +19,13 @@ RUN yarn build
 
 RUN rm -rf node_modules
 
-RUN yarn install --production=true --frozen-lockfile --network-timeout 1000000 && \
-  yarn cache clean
+RUN yarn workspaces focus --production
 
 # ---
 FROM node:20-alpine AS runner
 
-RUN apk update && apk add --no-cache curl && apk add --no-cache ca-certificates
+RUN corepack enable && \
+  apk update && apk add --no-cache curl ca-certificates
 
 LABEL org.opencontainers.image.source="https://github.com/hamzaabamboo/outline"
 
@@ -38,10 +39,12 @@ COPY --from=base $APP_PATH/public ./public
 COPY --from=base $APP_PATH/.sequelizerc ./.sequelizerc
 COPY --from=base $APP_PATH/node_modules ./node_modules
 COPY --from=base $APP_PATH/package.json ./package.json
+COPY --from=base $APP_PATH/yarn.lock ./yarn.lock
+COPY --from=base $APP_PATH/.yarnrc.yml ./.yarnrc.yml
 
 RUN addgroup -g 1001 -S nodejs && \
   adduser -S nodejs -u 1001 && \
-  chown -R nodejs:nodejs $APP_PATH/build && \
+  chown -R nodejs:nodejs $APP_PATH && \
   mkdir -p /var/lib/outline && \
   chown -R nodejs:nodejs /var/lib/outline
 

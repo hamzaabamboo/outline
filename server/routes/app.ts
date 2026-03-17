@@ -11,8 +11,10 @@ import {
   type NavigationNode,
 } from "@shared/types";
 import { unicodeCLDRtoISO639 } from "@shared/utils/date";
+import { attachmentRedirectRegex } from "@shared/utils/ProsemirrorHelper";
 import env from "@server/env";
-import { Integration } from "@server/models";
+import { Attachment, Integration } from "@server/models";
+import FileStorage from "@server/storage/files";
 import { DocumentHelper } from "@server/models/helpers/DocumentHelper";
 import presentEnv from "@server/presenters/env";
 import { getTeamFromContext } from "@server/utils/passport";
@@ -23,6 +25,33 @@ import parseImages from "@server/utils/parseImages";
 
 const readFile = util.promisify(fs.readFile);
 const entry = "app/index.tsx";
+
+const OG_IMAGE_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+async function getSignedOgImageUrl(
+  imageUrl: string | undefined,
+  teamId: string | undefined
+): Promise<string | undefined> {
+  if (!imageUrl || !teamId) {
+    return imageUrl;
+  }
+
+  const match = imageUrl.match(attachmentRedirectRegex);
+  if (!match?.groups?.id) {
+    return imageUrl;
+  }
+
+  const attachment = await Attachment.findOne({
+    where: { id: match.groups.id, teamId },
+  });
+
+  if (!attachment) {
+    return imageUrl;
+  }
+
+  return FileStorage.getSignedUrl(attachment.key, OG_IMAGE_EXPIRY_SECONDS);
+}
+
 const viteHost = env.URL.replace(`:${env.PORT}`, ":3001");
 
 let indexHtmlCache: Buffer | undefined;
@@ -342,9 +371,10 @@ export const renderShare = async (ctx: Context, next: Next) => {
         }`
       : undefined;
 
-  const firstImage = document?.text
+  const firstImageSrc = document?.text
     ? parseImages(document.text)[0]?.src
     : undefined;
+  const ogImage = await getSignedOgImageUrl(firstImageSrc, share?.teamId);
 
   return renderApp(ctx, next, {
     title,
@@ -354,7 +384,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
     content,
     shortcutIcon:
       publicBranding && team?.avatarUrl ? team.avatarUrl : undefined,
-    ogImage: firstImage,
+    ogImage,
     analytics,
     isShare: true,
     rootShareId,
