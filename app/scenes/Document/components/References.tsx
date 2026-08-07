@@ -5,8 +5,7 @@ import styled from "styled-components";
 import type Document from "~/models/Document";
 import Fade from "~/components/Fade";
 import { determineSidebarContext } from "~/components/Sidebar/components/SidebarContext";
-import Tab from "~/components/Tab";
-import Tabs from "~/components/Tabs";
+import { Tab, Tabs } from "~/components/Tabs";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import { useLocationSidebarContext } from "~/hooks/useLocationSidebarContext";
 import useStores from "~/hooks/useStores";
@@ -27,12 +26,17 @@ function References({ document }: Props) {
   const locationSidebarContext = useLocationSidebarContext();
   const { sharedTree, isShare } = useShare();
   const [activeTab, setActiveTab] = useState<TabType>("children");
+  const isJustCreated = useMemo(
+    () => document.isJustCreated,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [document.id]
+  );
 
   useEffect(() => {
-    if (!isShare) {
+    if (!isShare && !isJustCreated) {
       void documents.fetchRelationships(document.id);
     }
-  }, [isShare, documents, document.id]);
+  }, [isShare, documents, document.id, isJustCreated]);
 
   const children = useChildren(document, sharedTree);
   const backlinks = useBacklinks(document, sharedTree);
@@ -171,12 +175,15 @@ const Content = styled.div`
   position: relative;
 `;
 
-const List = styled.div<{ $active: boolean }>`
+const List = styled.ul<{ $active: boolean }>`
   visibility: ${({ $active }) => ($active ? "visible" : "hidden")};
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 `;
 
 export default observer(References);

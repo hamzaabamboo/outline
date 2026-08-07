@@ -1,7 +1,5 @@
 /* oxlint-disable lines-between-class-members */
-import compact from "lodash/compact";
-import isNil from "lodash/isNil";
-import uniq from "lodash/uniq";
+import { compact, isNil, uniq } from "es-toolkit/compat";
 import type {
   Identifier,
   InferAttributes,
@@ -10,9 +8,16 @@ import type {
   SaveOptions,
   ScopeOptions,
   FindOptions,
+  ProjectionAlias,
   WhereOptions,
 } from "sequelize";
-import { Transaction, Op, EmptyResultError, Sequelize } from "sequelize";
+import {
+  Transaction,
+  Op,
+  EmptyResultError,
+  Sequelize,
+  QueryTypes,
+} from "sequelize";
 import {
   ForeignKey,
   BelongsTo,
@@ -40,6 +45,8 @@ import {
 import { MaxLength } from "class-validator";
 import isUUID from "validator/lib/isUUID";
 import type {
+  DocumentPermission,
+  ImportableIntegrationService,
   NavigationNode,
   ProsemirrorData,
   SourceMetadata,
@@ -50,8 +57,8 @@ import slugify from "@shared/utils/slugify";
 import { DocumentValidation } from "@shared/validations";
 import { InvalidRequestError, ValidationError } from "@server/errors";
 import { generateUrlId } from "@server/utils/url";
-import { createContext } from "@server/context";
 import Collection from "./Collection";
+import Comment from "./Comment";
 import FileOperation from "./FileOperation";
 import Group from "./Group";
 import GroupMembership from "./GroupMembership";
@@ -65,14 +72,14 @@ import User from "./User";
 import UserMembership from "./UserMembership";
 import View from "./View";
 import ArchivableModel from "./base/ArchivableModel";
-import Fix from "./decorators/Fix";
+import { CounterCache } from "./decorators/CounterCache";
 import { DocumentHelper } from "./helpers/DocumentHelper";
 import IsHexColor from "./validators/IsHexColor";
 import Length from "./validators/Length";
 import type { APIContext } from "@server/types";
 import { APIUpdateExtension } from "@server/collaboration/APIUpdateExtension";
 import { SkipChangeset } from "./decorators/Changeset";
-import type { HookContext } from "./base/Model";
+import type { EventOverrideOptions, HookContext } from "./base/Model";
 import Template from "./Template";
 
 export const DOCUMENT_VERSION = 2;
@@ -80,22 +87,39 @@ export const DOCUMENT_VERSION = 2;
 // If content (JSON) is null then we still need to return the state column (BINARY)
 // as it's used as a fallback for content deserialization for older documents.
 // This can be removed if content is 100% backfilled.
-const stateIfContentEmpty = Sequelize.literal(
-  `CASE WHEN document.content IS NULL THEN document.state ELSE NULL END AS state`
-);
+const stateIfContentEmpty: ProjectionAlias = [
+  Sequelize.literal(
+    `CASE WHEN document.content IS NULL THEN document.state ELSE NULL END`
+  ),
+  "state",
+];
 
 type AdditionalFindOptions = {
   /** The user ID to load associated permissions for. */
   userId?: string;
   /** Whether to include the state column in the attributes. */
   includeState?: boolean;
-  /** Whether to views (default: true). */
+  /**
+   * Whether to include the content columns in the attributes (default: true).
+   * Pass false when the document is only needed for authorization.
+   */
+  includeContent?: boolean;
+  /** Whether to include views (default: true). */
   includeViews?: boolean;
   /** Whether to reject the query if no document is found. */
   rejectOnEmpty?: boolean | Error;
 };
 
-// @ts-expect-error Type 'Literal' is not assignable to type 'string | ProjectionAlias'.
+/** Sequelize types the query generator as unknown; this narrows to the single
+ * method used to build a raw SQL filter fragment. */
+interface QueryGeneratorWithWhere {
+  getWhereConditions(
+    where: WhereOptions<Document>,
+    tableName: string,
+    factory: typeof Document
+  ): string;
+}
+
 @DefaultScope(() => ({
   include: [
     {
@@ -121,14 +145,20 @@ type AdditionalFindOptions = {
     template: false,
   },
   attributes: {
+    exclude: ["state"],
     include: [stateIfContentEmpty],
   },
 }))
-// @ts-expect-error Type 'Literal' is not assignable to type 'string | ProjectionAlias'.
 @Scopes(() => ({
   withoutState: {
     attributes: {
+      exclude: ["state"],
       include: [stateIfContentEmpty],
+    },
+  },
+  withoutContent: {
+    attributes: {
+      exclude: ["state", "content", "text"],
     },
   },
   withCollection: {
@@ -170,7 +200,6 @@ type AdditionalFindOptions = {
             userId,
           },
           required: false,
-          separate: true,
         },
       ],
     };
@@ -198,7 +227,6 @@ type AdditionalFindOptions = {
             userId,
           },
           required: false,
-          separate: true,
         },
         {
           association: "groupMemberships",
@@ -267,7 +295,6 @@ type AdditionalFindOptions = {
   },
 }))
 @Table({ tableName: "documents", modelName: "document" })
-@Fix
 class Document extends ArchivableModel<
   InferAttributes<Document>,
   Partial<InferCreationAttributes<Document>>
@@ -278,40 +305,40 @@ class Document extends ArchivableModel<
     msg: `urlId must be 10 characters`,
   })
   @Unique
-  @Column
+  @Column(DataType.STRING)
   urlId: string;
 
   @Length({
     max: DocumentValidation.maxTitleLength,
     msg: `Document title must be ${DocumentValidation.maxTitleLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   title: string;
 
   @Length({
     max: DocumentValidation.maxSummaryLength,
     msg: `Document summary must be ${DocumentValidation.maxSummaryLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   @SkipChangeset
   summary: string;
 
   @Column(DataType.ARRAY(DataType.STRING))
-  previousTitles: string[] = [];
+  previousTitles: string[];
 
   @IsNumeric
   @Column(DataType.SMALLINT)
   version?: number | null;
 
   @Default(false)
-  @Column
+  @Column(DataType.BOOLEAN)
   fullWidth: boolean;
 
   @Default(false)
-  @Column
+  @Column(DataType.BOOLEAN)
   template: boolean;
 
-  @Column
+  @Column(DataType.BOOLEAN)
   insightsEnabled: boolean;
 
   /** The version of the editor last used to edit this document. */
@@ -319,16 +346,16 @@ class Document extends ArchivableModel<
     max: 255,
     msg: `editorVersion must be 255 characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   editorVersion: string | null;
 
   /** An icon to use as the document icon. */
-  @Column
+  @Column(DataType.STRING)
   icon: string | null;
 
   /** The color of the icon. */
   @IsHexColor
-  @Column
+  @Column(DataType.STRING)
   color: string | null;
 
   /**
@@ -337,6 +364,10 @@ class Document extends ArchivableModel<
    * @deprecated Use `content` instead, or `DocumentHelper.toMarkdown` if exporting lossy markdown.
    * This column will be removed in a future migration.
    */
+  @SimpleLength({
+    max: DocumentValidation.maxLength,
+    msg: `Document text content must be ${DocumentValidation.maxLength} characters or less`,
+  })
   @Column(DataType.TEXT)
   @SkipChangeset
   text: string;
@@ -367,7 +398,7 @@ class Document extends ArchivableModel<
 
   /** Whether this document is part of onboarding. */
   @Default(false)
-  @Column
+  @Column(DataType.BOOLEAN)
   isWelcome: boolean;
 
   /** How many versions there are in the history of this document. */
@@ -385,12 +416,12 @@ class Document extends ArchivableModel<
 
   /** Whether the document is published, and if so when. */
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   publishedAt: Date | null;
 
   /** An array of user IDs that have edited this document. */
   @Column(DataType.ARRAY(DataType.UUID))
-  collaboratorIds: string[] = [];
+  collaboratorIds: string[];
 
   // getters
 
@@ -464,7 +495,7 @@ class Document extends ArchivableModel<
     const collection = await Collection.findByPk(model.collectionId, {
       includeDocumentStructure: true,
       transaction,
-      lock: Transaction.LOCK.UPDATE,
+      lock: Transaction.LOCK.NO_KEY_UPDATE,
     });
     if (!collection) {
       return;
@@ -484,7 +515,7 @@ class Document extends ArchivableModel<
       const collection = await Collection.findByPk(model.collectionId!, {
         includeDocumentStructure: true,
         transaction,
-        lock: transaction.LOCK.UPDATE,
+        lock: transaction.LOCK.NO_KEY_UPDATE,
       });
       if (!collection) {
         return;
@@ -609,7 +640,7 @@ class Document extends ArchivableModel<
   importId: string | null;
 
   @BelongsTo(() => Import, "apiImportId")
-  apiImport: Import<any> | null;
+  apiImport: Import<ImportableIntegrationService> | null;
 
   @ForeignKey(() => Import)
   @Column(DataType.UUID)
@@ -679,16 +710,42 @@ class Document extends ArchivableModel<
   @HasMany(() => View)
   views: View[];
 
+  @CounterCache(() => Comment, {
+    as: "unresolvedComments",
+    foreignKey: "documentId",
+    where: { resolvedAt: { [Op.is]: null } },
+  })
+  commentCount: Promise<number>;
+
   /**
    * Returns an array of unique userIds that are members of a document
    * either via group or direct membership.
    *
    * @param documentId
+   * @param permission optional permission filter
+   *
    * @returns userIds
    */
-  static async membershipUserIds(documentId: string) {
+  static async membershipUserIds(
+    documentId: string,
+    permission?: DocumentPermission
+  ) {
     const document = await this.scope("withAllMemberships").findOne({
       where: { id: documentId },
+      include: [
+        {
+          association: "memberships",
+          required: false,
+          ...(permission ? { where: { permission } } : {}),
+          separate: true,
+        },
+        {
+          association: "groupMemberships",
+          required: false,
+          ...(permission ? { where: { permission } } : {}),
+          separate: true,
+        },
+      ],
     });
     if (!document) {
       return [];
@@ -702,6 +759,60 @@ class Document extends ArchivableModel<
       ...document.memberships,
     ].map((membership) => membership.userId);
     return uniq(membershipUserIds);
+  }
+
+  /**
+   * Returns an array of unique document IDs that the user is a member of,
+   * either via direct membership or through a group membership.
+   *
+   * @param userId The user ID to find document memberships for.
+   * @returns A promise resolving to an array of document IDs.
+   */
+  static async membershipDocumentIds(userId: string): Promise<string[]> {
+    const [memberships, groupMemberships] = await Promise.all([
+      UserMembership.findAll({
+        attributes: ["documentId"],
+        where: {
+          userId,
+          documentId: {
+            [Op.ne]: null,
+          },
+        },
+      }),
+      GroupMembership.findAll({
+        attributes: ["documentId"],
+        where: {
+          documentId: {
+            [Op.ne]: null,
+          },
+        },
+        include: [
+          {
+            model: Group,
+            as: "group",
+            attributes: [],
+            required: true,
+            include: [
+              {
+                model: GroupUser,
+                as: "groupUsers",
+                attributes: [],
+                required: true,
+                where: {
+                  userId,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    ]);
+
+    return uniq(
+      [...memberships, ...groupMemberships]
+        .map((membership) => membership.documentId)
+        .filter((id): id is string => !isNil(id))
+    );
   }
 
   static withMembershipScope(
@@ -748,15 +859,21 @@ class Document extends ArchivableModel<
     const {
       includeViews = true,
       includeState = false,
+      includeContent = true,
       userId,
       ...rest
     } = options;
+
+    let contentScope = includeState ? "withState" : "withoutState";
+    if (!includeContent) {
+      contentScope = "withoutContent";
+    }
 
     // allow default preloading of collection membership if `userId` is passed in find options
     // almost every endpoint needs the collection membership to determine policy permissions.
     const scope = this.scope([
       "withDrafts",
-      includeState ? "withState" : "withoutState",
+      contentScope,
       ...((includeViews
         ? [
             {
@@ -771,15 +888,17 @@ class Document extends ArchivableModel<
 
     if (isUUID(id)) {
       const document = await scope.findOne({
+        ...rest,
         where: {
           id,
         },
-        ...rest,
         rejectOnEmpty: false,
       });
 
       if (!document && rest.rejectOnEmpty) {
-        throw new EmptyResultError(`Document doesn't exist with id: ${id}`);
+        throw rest.rejectOnEmpty instanceof Error
+          ? rest.rejectOnEmpty
+          : new EmptyResultError(`Document doesn't exist with id: ${id}`);
       }
 
       return document;
@@ -788,15 +907,17 @@ class Document extends ArchivableModel<
     const match = id.match(UrlHelper.SLUG_URL_REGEX);
     if (match) {
       const document = await scope.findOne({
+        ...rest,
         where: {
           urlId: match[1],
         },
-        ...rest,
         rejectOnEmpty: false,
       });
 
       if (!document && rest.rejectOnEmpty) {
-        throw new EmptyResultError(`Document doesn't exist with id: ${id}`);
+        throw rest.rejectOnEmpty instanceof Error
+          ? rest.rejectOnEmpty
+          : new EmptyResultError(`Document doesn't exist with id: ${id}`);
       }
 
       return document;
@@ -846,14 +967,23 @@ class Document extends ArchivableModel<
       return documents;
     }
 
-    return documents.filter(
-      (doc) =>
-        (!doc.collection?.isPrivate && !user?.isGuest) ||
-        (doc.collection?.memberships.length || 0) > 0 ||
-        (doc.collection?.groupMemberships.length || 0) > 0 ||
-        doc.memberships.length > 0 ||
-        doc.groupMemberships.length > 0
-    );
+    return documents.filter((doc) => {
+      if (doc.memberships.length > 0 || doc.groupMemberships.length > 0) {
+        return true;
+      }
+
+      // A document without a collection is either an unfiled draft or lives in
+      // a collection the user cannot see – access is limited to the creator.
+      if (!doc.collection) {
+        return doc.createdById === userId;
+      }
+
+      return (
+        (!doc.collection.isPrivate && !user?.isGuest) ||
+        doc.collection.memberships.length > 0 ||
+        doc.collection.groupMemberships.length > 0
+      );
+    });
   }
 
   // instance methods
@@ -923,10 +1053,7 @@ class Document extends ArchivableModel<
   collaborators = async (options?: FindOptions<User>): Promise<User[]> =>
     await User.findAll({
       ...options,
-      where: {
-        ...options?.where,
-        id: this.collaboratorIds,
-      },
+      where: Object.assign({}, options?.where, { id: this.collaboratorIds }),
     });
 
   /**
@@ -960,33 +1087,46 @@ class Document extends ArchivableModel<
     where?: Omit<WhereOptions<Document>, "parentDocumentId">,
     options?: FindOptions<Document>
   ): Promise<string[]> => {
-    const findAllChildDocumentIds = async (
-      ...parentDocumentId: string[]
-    ): Promise<string[]> => {
-      const childDocuments = await (
-        this.constructor as typeof Document
-      ).findAll({
-        attributes: ["id"],
-        where: {
-          parentDocumentId,
-          ...where,
-        },
-        ...options,
-      });
+    const model = this.constructor as typeof Document;
+    const queryGenerator = this.sequelize!.getQueryInterface()
+      .queryGenerator as QueryGeneratorWithWhere;
 
-      const childDocumentIds = childDocuments.map((doc) => doc.id);
+    const paranoid = options?.paranoid ?? true;
+    const whereConditions = queryGenerator.getWhereConditions(
+      { ...(paranoid ? { deletedAt: null } : {}), ...where },
+      "documents",
+      model
+    );
+    const anchorFilter = whereConditions ? `AND (${whereConditions})` : "";
+    const recursiveFilter = whereConditions ? `WHERE (${whereConditions})` : "";
 
-      if (childDocumentIds.length > 0) {
-        return [
-          ...childDocumentIds,
-          ...(await findAllChildDocumentIds(...childDocumentIds)),
-        ];
+    // A single recursive CTE walks the entire subtree in one round-trip rather
+    // than issuing one query per level of nesting (N+1). Rows are ordered by
+    // depth to ensure breadth-first result ordering. UNION ALL is safe as the
+    // tree is acyclic, so each descendant id is reached exactly once.
+    const rows = await this.sequelize!.query<{ id: string }>(
+      `
+      WITH RECURSIVE children AS (
+        SELECT documents.id, 1 AS depth
+        FROM documents
+        WHERE documents."parentDocumentId" = :parentDocumentId
+          ${anchorFilter}
+        UNION ALL
+        SELECT documents.id, children.depth + 1
+        FROM documents
+        INNER JOIN children ON documents."parentDocumentId" = children.id
+        ${recursiveFilter}
+      )
+      SELECT id FROM children ORDER BY depth
+      `,
+      {
+        replacements: { parentDocumentId: this.id },
+        transaction: options?.transaction,
+        type: QueryTypes.SELECT,
       }
+    );
 
-      return childDocumentIds;
-    };
-
-    return findAllChildDocumentIds(this.id);
+    return rows.map((row) => row.id);
   };
 
   publish = async (
@@ -1008,6 +1148,9 @@ class Document extends ArchivableModel<
     const { user } = ctx.state.auth;
     const { transaction } = ctx.state;
 
+    this.lastModifiedById = user.id;
+    this.updatedBy = user;
+
     // If the document is already published then calling publish should act like
     // a regular save
     if (this.publishedAt) {
@@ -1026,7 +1169,7 @@ class Document extends ArchivableModel<
       const collection = await Collection.findByPk(this.collectionId, {
         includeDocumentStructure: true,
         transaction,
-        lock: Transaction.LOCK.UPDATE,
+        lock: Transaction.LOCK.NO_KEY_UPDATE,
       });
 
       if (collection) {
@@ -1055,8 +1198,6 @@ class Document extends ArchivableModel<
       );
     }
 
-    this.lastModifiedById = user.id;
-    this.updatedBy = user;
     this.publishedAt = new Date();
 
     if (event) {
@@ -1113,7 +1254,7 @@ class Document extends ArchivableModel<
       ? await Collection.findByPk(this.collectionId, {
           includeDocumentStructure: true,
           transaction,
-          lock: transaction?.LOCK.UPDATE,
+          lock: transaction?.LOCK.NO_KEY_UPDATE,
         })
       : undefined;
 
@@ -1147,7 +1288,7 @@ class Document extends ArchivableModel<
       ? await Collection.findByPk(this.collectionId, {
           includeDocumentStructure: true,
           transaction,
-          lock: transaction?.LOCK.UPDATE,
+          lock: transaction?.LOCK.NO_KEY_UPDATE,
         })
       : undefined;
 
@@ -1172,7 +1313,7 @@ class Document extends ArchivableModel<
       ? await Collection.findByPk(collectionId, {
           includeDocumentStructure: true,
           transaction,
-          lock: transaction?.LOCK.UPDATE,
+          lock: transaction?.LOCK.NO_KEY_UPDATE,
         })
       : undefined;
 
@@ -1215,36 +1356,36 @@ class Document extends ArchivableModel<
   };
 
   // Delete a document, archived or otherwise.
-  delete = (user: User) =>
-    this.sequelize.transaction(async (transaction: Transaction) => {
-      let deleted = false;
+  destroyWithCtx = async (
+    ctx: APIContext,
+    eventOpts?: EventOverrideOptions
+  ): Promise<void> => {
+    const { user } = ctx.state.auth;
+    const { transaction } = ctx.state;
+    let deleted = false;
 
-      if (this.collectionId) {
-        const collection = await Collection.findByPk(this.collectionId!, {
-          includeDocumentStructure: true,
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-          paranoid: false,
-        });
-
-        if (!this.archivedAt || (this.archivedAt && collection?.archivedAt)) {
-          await collection?.deleteDocument(this, { transaction });
-          deleted = true;
-        }
-      }
-
-      if (!deleted) {
-        await this.destroy({
-          transaction,
-        });
-      }
-
-      this.lastModifiedById = user.id;
-      this.updatedBy = user;
-      return this.saveWithCtx(createContext({ user, transaction }), undefined, {
-        name: "delete",
+    if (this.collectionId) {
+      const collection = await Collection.findByPk(this.collectionId, {
+        includeDocumentStructure: true,
+        transaction,
+        lock: transaction?.LOCK.NO_KEY_UPDATE,
+        paranoid: false,
       });
-    });
+
+      if (!this.archivedAt || (this.archivedAt && collection?.archivedAt)) {
+        await collection?.deleteDocument(this, { transaction });
+        deleted = true;
+      }
+    }
+
+    if (!deleted) {
+      await this.destroy({ transaction });
+    }
+
+    this.lastModifiedById = user.id;
+    this.updatedBy = user;
+    await this.saveWithCtx(ctx, undefined, { name: "delete", ...eventOpts });
+  };
 
   getTimestamp = () => Math.round(new Date(this.updatedAt).getTime() / 1000);
 

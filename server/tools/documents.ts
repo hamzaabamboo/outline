@@ -1,14 +1,22 @@
 import { z } from "zod";
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import documentCreator from "@server/commands/documentCreator";
+import documentCreator, {
+  authorizeDocumentCreate,
+  authorizeDocumentPublish,
+} from "@server/commands/documentCreator";
 import documentMover from "@server/commands/documentMover";
+import documentRestorer from "@server/commands/documentRestorer";
 import documentUpdater from "@server/commands/documentUpdater";
-import { Op } from "sequelize";
-import { Collection, Document } from "@server/models";
+import { Collection, Document, SearchQuery, Template } from "@server/models";
+import { SearchQuerySource } from "@server/models/SearchQuery";
+import DocumentImportTask from "@server/queues/tasks/DocumentImportTask";
 import { sequelize } from "@server/storage/database";
-import { authorize } from "@server/policies";
-import { presentDocument } from "@server/presenters";
+import { authorize, can } from "@server/policies";
+import {
+  presentDocument as presentDocumentBase,
+  presentNavigationNode,
+} from "@server/presenters";
 import AuthenticationHelper from "@shared/helpers/AuthenticationHelper";
 import { UrlHelper } from "@shared/utils/UrlHelper";
 import {
@@ -17,11 +25,37 @@ import {
   buildAPIContext,
   buildSiblingIndexMap,
   getActorFromContext,
+  getBreadcrumbsForDocuments,
+  getDocumentBreadcrumb,
+  getPublicShareUrlForDocument,
+  getPublicShareUrlsForDocuments,
+  optionalString,
   pathToUrl,
   withTracing,
 } from "./util";
-import { TextEditMode } from "@shared/types";
+import { ValidationError } from "@server/errors";
+import { StatusFilter, TextEditMode } from "@shared/types";
 import SearchProviderManager from "@server/utils/SearchProviderManager";
+
+/**
+ * Presents a document for a tool response. Adds MCP-specific fields
+ * on top of the standard document presenter.
+ *
+ * @param document - the document to present.
+ * @param options - optional presenter options
+ * @returns the presented document object.
+ */
+export function presentDocument(
+  document: Document,
+  options: {
+    includeData?: boolean;
+    includeText?: boolean;
+    includeUpdatedAt?: boolean;
+    includeCommentCount?: boolean;
+  } = {}
+) {
+  return presentDocumentBase(undefined, document, options);
+}
 
 /**
  * Registers document-related MCP tools on the given server, filtered by
@@ -37,22 +71,18 @@ export function documentTools(server: McpServer, scopes: string[]) {
       {
         title: "Search documents",
         description:
-          "Searches documents the user has access to. Performs full-text search across document content when a query is provided, or lists recent documents when no query is given. Optionally filter by collection.",
+          "Searches documents the user has access to. Performs full-text search across document content when a query is provided, or lists recent documents when no query is given. Optionally filter by collection. To retrieve the full contents or hierarchy of a specific collection, use list_collection_documents instead.",
         annotations: {
           idempotentHint: true,
           readOnlyHint: true,
         },
         inputSchema: {
-          query: z
-            .string()
-            .optional()
-            .describe(
-              "A search query to find documents by content or title. When omitted, returns recent documents."
-            ),
-          collectionId: z
-            .string()
-            .optional()
-            .describe("An optional collection ID to filter documents by."),
+          query: optionalString().describe(
+            "A search query to find documents by content or title. When omitted, returns recent documents."
+          ),
+          collectionId: optionalString().describe(
+            "A collection ID to filter documents by."
+          ),
           offset: z.coerce
             .number()
             .int()
@@ -102,6 +132,9 @@ export function documentTools(server: McpServer, scopes: string[]) {
                 exactMatch = await Document.findByPk(query, {
                   userId: user.id,
                 });
+                if (exactMatch && !can(user, "read", exactMatch)) {
+                  exactMatch = null;
+                }
                 if (
                   exactMatch &&
                   collectionId &&
@@ -111,46 +144,84 @@ export function documentTools(server: McpServer, scopes: string[]) {
                 }
               }
 
-              const { results } = await searchProvider.searchForUser(user, {
-                query,
-                collectionId,
-                offset: effectiveOffset,
-                limit: effectiveLimit,
-              });
+              const searchStartedAt = Date.now();
+              const { results, total } = await searchProvider.searchForUser(
+                user,
+                {
+                  query,
+                  collectionId,
+                  offset: effectiveOffset,
+                  limit: effectiveLimit,
+                }
+              );
+
+              // Only record the first page of results to avoid duplicate
+              // records as the client pages through results.
+              if (effectiveOffset === 0) {
+                await SearchQuery.record({
+                  userId: user.id,
+                  teamId: user.teamId,
+                  source: SearchQuerySource.MCP,
+                  query,
+                  results: total,
+                  duration: Date.now() - searchStartedAt,
+                });
+              }
+
+              const filteredResults = results.filter(
+                (result) => result.document.id !== exactMatch?.id
+              );
+              const matchedDocuments = [
+                ...(exactMatch ? [exactMatch] : []),
+                ...filteredResults.map((r) => r.document),
+              ];
+              const [breadcrumbs, shareUrls] = await Promise.all([
+                getBreadcrumbsForDocuments(matchedDocuments, user),
+                getPublicShareUrlsForDocuments(
+                  user.team,
+                  matchedDocuments.map((doc) => doc.id)
+                ),
+              ]);
 
               const presented = await Promise.all(
-                results
-                  .filter((result) => result.document.id !== exactMatch?.id)
-                  .map(async (result) => {
-                    const doc = pathToUrl(
-                      user.team,
-                      await presentDocument(undefined, result.document, {
-                        includeData: false,
-                        includeText: false,
-                      })
-                    );
-                    const siblingIndex = indexMap?.get(result.document.id);
-                    return {
-                      ...doc,
-                      context: result.context,
-                      ...(siblingIndex !== undefined && {
-                        index: siblingIndex,
-                      }),
-                    };
-                  })
+                filteredResults.map(async (result) => {
+                  const doc = pathToUrl(
+                    user.team,
+                    await presentDocument(result.document, {
+                      includeData: false,
+                      includeText: false,
+                    })
+                  );
+                  const breadcrumb = breadcrumbs.get(result.document.id);
+                  const shareUrl = shareUrls.get(result.document.id);
+                  const siblingIndex = indexMap?.get(result.document.id);
+                  return {
+                    document: doc,
+                    ...(breadcrumb !== undefined && { breadcrumb }),
+                    ...(shareUrl !== undefined && { shareUrl }),
+                    context: result.context,
+                    ...(siblingIndex !== undefined && {
+                      index: siblingIndex,
+                    }),
+                  };
+                })
               );
 
               if (exactMatch) {
                 const doc = pathToUrl(
                   user.team,
-                  await presentDocument(undefined, exactMatch, {
+                  await presentDocument(exactMatch, {
                     includeData: false,
                     includeText: false,
                   })
                 );
+                const breadcrumb = breadcrumbs.get(exactMatch.id);
+                const shareUrl = shareUrls.get(exactMatch.id);
                 const siblingIndex = indexMap?.get(exactMatch.id);
                 presented.unshift({
-                  ...doc,
+                  document: doc,
+                  ...(breadcrumb !== undefined && { breadcrumb }),
+                  ...(shareUrl !== undefined && { shareUrl }),
                   context: undefined,
                   ...(siblingIndex !== undefined && { index: siblingIndex }),
                 });
@@ -159,39 +230,93 @@ export function documentTools(server: McpServer, scopes: string[]) {
               return success(presented);
             }
 
-            const collectionIds = collectionId
-              ? [collectionId]
-              : await user.collectionIds();
-
-            const documents = await Document.findAll({
-              where: {
-                teamId: user.teamId,
-                collectionId: collectionIds,
-                archivedAt: { [Op.eq]: null },
-                deletedAt: { [Op.eq]: null },
-              },
-              order: [["updatedAt", "DESC"]],
+            // List recent documents via the search provider (with no query) so
+            // access control matches the search path exactly.
+            const searchProvider = SearchProviderManager.getProvider();
+            const { results } = await searchProvider.searchForUser(user, {
+              collectionId,
               offset: effectiveOffset,
               limit: effectiveLimit,
+              statusFilter: [StatusFilter.Published],
             });
+
+            const documents = results.map((result) => result.document);
+
+            const [breadcrumbs, shareUrls] = await Promise.all([
+              getBreadcrumbsForDocuments(documents, user),
+              getPublicShareUrlsForDocuments(
+                user.team,
+                documents.map((document) => document.id)
+              ),
+            ]);
 
             const presented = await Promise.all(
               documents.map(async (document) => {
-                const result = pathToUrl(
+                const doc = pathToUrl(
                   user.team,
-                  await presentDocument(undefined, document, {
+                  await presentDocument(document, {
                     includeData: false,
                     includeText: false,
                   })
                 );
+                const breadcrumb = breadcrumbs.get(document.id);
+                const shareUrl = shareUrls.get(document.id);
                 const siblingIndex = indexMap?.get(document.id);
-                if (siblingIndex !== undefined) {
-                  result.index = siblingIndex;
-                }
-                return result;
+                return {
+                  document: doc,
+                  ...(breadcrumb !== undefined && { breadcrumb }),
+                  ...(shareUrl !== undefined && { shareUrl }),
+                  ...(siblingIndex !== undefined && { index: siblingIndex }),
+                };
               })
             );
             return success(presented);
+          } catch (message) {
+            return error(message);
+          }
+        }
+      )
+    );
+  }
+
+  if (AuthenticationHelper.canAccess("collections.documents", scopes)) {
+    server.registerTool(
+      "list_collection_documents",
+      {
+        title: "List all documents in a collection",
+        description:
+          "Returns the complete hierarchical tree of published documents in a collection, including nested sub-documents. Use this to enumerate every document in a collection or to understand parent/child relationships. Drafts and archived documents are not included.",
+        annotations: {
+          idempotentHint: true,
+          readOnlyHint: true,
+        },
+        inputSchema: {
+          collectionId: z
+            .string()
+            .describe(
+              "The ID of the collection whose document tree to return."
+            ),
+        },
+      },
+      withTracing(
+        "list_collection_documents",
+        async ({ collectionId }, extra) => {
+          try {
+            const user = getActorFromContext(extra);
+
+            const collection = await Collection.findByPk(collectionId, {
+              userId: user.id,
+              rejectOnEmpty: true,
+            });
+            authorize(user, "readDocument", collection);
+
+            const documentStructure =
+              await collection.getCachedDocumentStructure();
+
+            const tree = (documentStructure ?? []).map((node) =>
+              presentNavigationNode(user.team, node)
+            );
+            return success(tree);
           } catch (message) {
             return error(message);
           }
@@ -206,102 +331,129 @@ export function documentTools(server: McpServer, scopes: string[]) {
       {
         title: "Create document",
         description:
-          "Creates a new document. Requires a collectionId to place the document in a collection, or parentDocumentId to nest it under an existing document.",
+          "Creates a new document from markdown or HTML content. Requires a collectionId to place the document in a collection, or parentDocumentId to nest it under an existing document. Pass a templateId (from list_templates) to pre-fill the document from a template; the template's content is used unless text is also provided.",
         annotations: {
           idempotentHint: false,
           readOnlyHint: false,
         },
         inputSchema: {
-          title: z.string().describe("The title of the document."),
+          title: optionalString().describe(
+            "The title of the document. Defaults to the template's title when a templateId is provided."
+          ),
           text: z
             .string()
             .optional()
-            .describe("The markdown content of the document."),
-          collectionId: z
-            .string()
+            .describe(
+              'The content of the document. Interpreted as markdown unless format is set to "html".'
+            ),
+          format: z
+            .enum(["markdown", "html"])
             .optional()
-            .describe("The collection to place the document in."),
-          parentDocumentId: z
-            .string()
-            .optional()
-            .describe("The parent document ID to nest this document under."),
-          icon: z
-            .string()
-            .optional()
-            .describe("An icon for the document, e.g. an emoji."),
-          color: z
-            .string()
-            .optional()
-            .describe("The hex color for the document icon, e.g. #FF0000."),
+            .describe(
+              'The format of the text content. Defaults to "markdown"; use "html" for rich HTML input.'
+            ),
+          sourceFileName: optionalString().describe(
+            'The name of the file the content was read from, e.g. "notes.md". Recorded on the document and shown to users as the file it was imported from, so only set it when the content genuinely came from a file. Also used as the title when the content has no heading and no title is given.'
+          ),
+          collectionId: optionalString().describe(
+            "The collection to place the document in."
+          ),
+          parentDocumentId: optionalString().describe(
+            "The parent document ID to nest this document under."
+          ),
+          templateId: optionalString().describe(
+            "The ID of a template to pre-fill the new document from. The template's title, content, icon, and color are used unless overridden by the corresponding parameters."
+          ),
+          icon: optionalString().describe(
+            "An icon for the document. May be an emoji or a named icon; read the outline://icons resource for the list of available icon names."
+          ),
+          color: optionalString().describe(
+            "The hex color for the document icon, e.g. #FF0000."
+          ),
           publish: z
             .boolean()
             .optional()
             .describe(
               "Whether to publish the document. Defaults to true. Set to false to create as a draft."
             ),
+          fullWidth: z
+            .boolean()
+            .optional()
+            .describe(
+              "Whether the document should occupy full width of the screen. Defaults to false. Do not set this to true for HTML input unless the user explicitly asks for a full-width document layout."
+            ),
         },
       },
       withTracing("create_document", async (input, context) => {
         try {
-          const { collectionId, parentDocumentId } = input;
+          const { collectionId, parentDocumentId, templateId } = input;
           const ctx = buildAPIContext(context);
           const { user } = ctx.state.auth;
-          let collection;
-          let parentDocument;
 
-          if (parentDocumentId) {
-            parentDocument = await Document.findByPk(parentDocumentId, {
-              userId: user.id,
-            });
-
-            if (parentDocument?.collectionId) {
-              collection = await Collection.findByPk(
-                parentDocument.collectionId,
-                { userId: user.id }
-              );
-            }
-
-            authorize(user, "createChildDocument", parentDocument, {
-              collection,
-            });
-          } else if (collectionId) {
-            collection = await Collection.findByPk(collectionId, {
-              userId: user.id,
-            });
-            authorize(user, "createDocument", collection);
-          }
-
-          const document = await documentCreator(ctx, {
-            title: input.title,
-            text: input.text,
-            icon: input.icon,
-            color: input.color,
-            parentDocumentId: parentDocumentId,
-            publish: input.publish !== false,
-            collectionId: collection?.id,
+          const { collection } = await authorizeDocumentCreate(ctx, {
+            collectionId,
+            parentDocumentId,
           });
 
-          const { text, ...attributes } = await presentDocument(
-            undefined,
-            document,
-            {
-              includeData: false,
-              includeText: true,
-              includeUpdatedAt: true,
-            }
-          );
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: JSON.stringify(pathToUrl(user.team, attributes)),
-              },
-              {
-                type: "text" as const,
-                text: String(text ?? ""),
-              },
-            ],
-          } satisfies CallToolResult;
+          let template: Template | null | undefined;
+          if (templateId) {
+            template = await Template.findByPk(templateId, {
+              userId: user.id,
+            });
+            authorize(user, "read", template);
+          }
+
+          // Parsing HTML loads a full DOM, which would block the event loop for
+          // every other request, so hand it to a worker instead.
+          const document =
+            input.format === "html"
+              ? await DocumentImportTask.scheduleAndWait({
+                  content: input.text ?? "",
+                  sourceMetadata: {
+                    fileName: input.sourceFileName ?? "document.html",
+                    mimeType: "text/html",
+                  },
+                  attributes: {
+                    title: input.title,
+                    icon: input.icon,
+                    color: input.color,
+                    fullWidth: input.fullWidth,
+                  },
+                  userId: user.id,
+                  publish: input.publish !== false,
+                  collectionId: collection?.id,
+                  parentDocumentId,
+                  authType: ctx.state.auth.type,
+                  ip: ctx.context.ip,
+                })
+              : await documentCreator(ctx, {
+                  title: input.title,
+                  text: input.text,
+                  icon: input.icon,
+                  color: input.color,
+                  parentDocumentId,
+                  publish: input.publish !== false,
+                  collectionId: collection?.id,
+                  template,
+                  fullWidth: input.fullWidth,
+                  sourceMetadata: input.sourceFileName
+                    ? {
+                        fileName: input.sourceFileName,
+                        mimeType: "text/markdown",
+                      }
+                    : undefined,
+                });
+
+          const breadcrumb = await getDocumentBreadcrumb(document, user);
+          return success({
+            success: true,
+            ...pathToUrl(user.team, {
+              id: document.id,
+              title: document.title,
+              url: document.url,
+            }),
+            ...(breadcrumb !== undefined && { breadcrumb }),
+          });
         } catch (message) {
           return error(message);
         }
@@ -324,18 +476,12 @@ export function documentTools(server: McpServer, scopes: string[]) {
           id: z
             .string()
             .describe("The unique identifier of the document to move."),
-          collectionId: z
-            .string()
-            .optional()
-            .describe(
-              "The destination collection ID. Required if parentDocumentId is not provided."
-            ),
-          parentDocumentId: z
-            .string()
-            .optional()
-            .describe(
-              "The ID of the document to nest this document under. The document will be moved to the parent's collection."
-            ),
+          collectionId: optionalString().describe(
+            "The destination collection ID. Required if parentDocumentId is not provided."
+          ),
+          parentDocumentId: optionalString().describe(
+            "The ID of the document to nest this document under. The document will be moved to the parent's collection."
+          ),
           index: z
             .number()
             .int()
@@ -351,7 +497,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
           const ctx = buildAPIContext(context);
           const { user } = ctx.state.auth;
 
-          return await sequelize.transaction(async (transaction) => {
+          const document = await sequelize.transaction(async (transaction) => {
             ctx.state.transaction = transaction;
             ctx.context.transaction = transaction;
 
@@ -367,7 +513,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
 
             if (input.parentDocumentId) {
               if (input.parentDocumentId === input.id) {
-                return error("Cannot nest a document inside itself");
+                throw ValidationError("Cannot nest a document inside itself");
               }
 
               const parent = await Document.findByPk(input.parentDocumentId, {
@@ -380,10 +526,10 @@ export function documentTools(server: McpServer, scopes: string[]) {
               collectionId = parent.collectionId!;
 
               if (!parent.publishedAt) {
-                return error("Cannot move document inside a draft");
+                throw ValidationError("Cannot move document inside a draft");
               }
             } else if (!collectionId) {
-              return error(
+              throw ValidationError(
                 "Either collectionId or parentDocumentId is required"
               );
             } else {
@@ -395,41 +541,26 @@ export function documentTools(server: McpServer, scopes: string[]) {
               authorize(user, "updateDocument", collection);
             }
 
-            const { documents, collections } = await documentMover(ctx, {
+            await documentMover(ctx, {
               document,
               collectionId: collectionId ?? null,
               parentDocumentId: input.parentDocumentId ?? null,
               index: input.index,
             });
 
-            const indexMap = new Map<string, number>();
-            for (const col of collections) {
-              if (col.documentStructure) {
-                for (const [id, idx] of buildSiblingIndexMap(
-                  col.documentStructure
-                )) {
-                  indexMap.set(id, idx);
-                }
-              }
-            }
+            return document;
+          });
 
-            const presented = await Promise.all(
-              documents.map(async (doc) => {
-                const result = pathToUrl(
-                  user.team,
-                  await presentDocument(undefined, doc, {
-                    includeData: false,
-                    includeText: false,
-                  })
-                );
-                const siblingIndex = indexMap.get(doc.id);
-                if (siblingIndex !== undefined) {
-                  result.index = siblingIndex;
-                }
-                return result;
-              })
-            );
-            return success(presented);
+          // Resolved after commit so the breadcrumb reflects the new location.
+          const breadcrumb = await getDocumentBreadcrumb(document, user);
+          return success({
+            success: true,
+            ...pathToUrl(user.team, {
+              id: document.id,
+              title: document.title,
+              url: document.url,
+            }),
+            ...(breadcrumb !== undefined && { breadcrumb }),
           });
         } catch (message) {
           return error(message);
@@ -444,39 +575,40 @@ export function documentTools(server: McpServer, scopes: string[]) {
       {
         title: "Update document",
         description:
-          "Updates an existing document by its ID. Only the fields provided will be updated.",
+          'Updates an existing document by its ID. Only the fields provided will be updated. IMPORTANT: When editing an existing document\'s content, always prefer editMode "patch" with findText and text — this surgically replaces only the matched section and preserves all rich formatting (highlights, comments, table widths, etc) in the rest of the document. Using "replace" will overwrite the entire document and lose any formatting that cannot be represented in markdown.',
         annotations: {
-          idempotentHint: true,
+          idempotentHint: false,
           readOnlyHint: false,
         },
         inputSchema: {
           id: z
             .string()
             .describe("The unique identifier of the document to update."),
-          title: z
-            .string()
-            .optional()
-            .describe("The new title for the document."),
+          title: optionalString().describe("The new title for the document."),
           text: z
             .string()
             .optional()
-            .describe("The new markdown content for the document."),
+            .describe(
+              'The markdown content to apply. In "replace" mode this becomes the entire document. In "append"/"prepend" mode it is added to the end/beginning. In "patch" mode this is the replacement text for the matched findText.'
+            ),
           editMode: z
             .enum(TextEditMode)
             .optional()
-            .describe("How to apply the text update. Defaults to replace."),
-          collectionId: z
-            .string()
-            .optional()
             .describe(
-              "The collection ID to publish a draft to, required when publishing a draft that has no collection."
+              'How to apply the text update. "replace" (default) replaces the entire document content. "append" adds text to the end. "prepend" adds text to the beginning. "patch" finds the exact markdown specified in findText and replaces only that portion, preserving the rest of the document including any rich formatting that cannot be represented in markdown.'
             ),
+          findText: optionalString().describe(
+            'Required when editMode is "patch". The exact markdown substring to find in the document. This should be copied verbatim from the document\'s existing markdown content. The first occurrence will be replaced with the text parameter. Can span multiple blocks (paragraphs, headings, etc).'
+          ),
+          collectionId: optionalString().describe(
+            "The collection ID to publish a draft to, required when publishing a draft that has no collection."
+          ),
           icon: z
             .string()
             .nullable()
             .optional()
             .describe(
-              "An icon for the document, e.g. an emoji. Set to null to remove."
+              "An icon for the document. Set to null to remove. May be an emoji or a named icon; read the outline://icons resource for the list of available icon names."
             ),
           color: z
             .string()
@@ -490,6 +622,12 @@ export function documentTools(server: McpServer, scopes: string[]) {
             .optional()
             .describe(
               "Set to true to publish a draft document, or false to convert a published document back to a draft."
+            ),
+          fullWidth: z
+            .boolean()
+            .optional()
+            .describe(
+              "Whether the document should occupy full width of the screen."
             ),
         },
       },
@@ -515,33 +653,189 @@ export function documentTools(server: McpServer, scopes: string[]) {
           } else {
             authorize(user, "update", document);
 
+            if (input.publish) {
+              await authorizeDocumentPublish(ctx, document, input.collectionId);
+            }
+
+            const { revisionCount } = document;
+
             updated = await documentUpdater(ctx, {
               document,
               ...input,
             });
+
+            // Every save increments revisionCount, so an unchanged count means
+            // nothing was persisted. Fail loud rather than return a success
+            // the caller would read as a completed write — the request either
+            // carried no recognized fields or values identical to the current
+            // document.
+            if (updated.revisionCount === revisionCount) {
+              return error(
+                "The update resulted in no changes to the document. Ensure at least one field is provided and differs from the current document."
+              );
+            }
           }
 
-          const { text, ...attributes } = await presentDocument(
-            undefined,
-            updated,
-            {
-              includeData: false,
-              includeText: true,
-              includeUpdatedAt: true,
-            }
-          );
+          // A patch only rewrites part of the document, so the resulting
+          // content is echoed back for the caller to verify what was applied.
+          // Other modes have nothing to report beyond the write succeeding.
+          if (input.editMode !== TextEditMode.Patch) {
+            const breadcrumb = await getDocumentBreadcrumb(updated, user);
+            return success({
+              success: true,
+              ...pathToUrl(user.team, {
+                id: updated.id,
+                title: updated.title,
+                url: updated.url,
+              }),
+              ...(breadcrumb !== undefined && { breadcrumb }),
+            });
+          }
+
+          const [{ text, ...attributes }, breadcrumb, shareUrl] =
+            await Promise.all([
+              presentDocument(updated, {
+                includeData: false,
+                includeText: true,
+                includeUpdatedAt: true,
+              }),
+              getDocumentBreadcrumb(updated, user),
+              getPublicShareUrlForDocument(user.team, updated.id),
+            ]);
           return {
             content: [
               {
                 type: "text" as const,
-                text: JSON.stringify(pathToUrl(user.team, attributes)),
+                text: JSON.stringify({
+                  document: pathToUrl(user.team, attributes),
+                  ...(breadcrumb !== undefined && { breadcrumb }),
+                  ...(shareUrl !== undefined && { shareUrl }),
+                }),
               },
               {
                 type: "text" as const,
-                text: String(text ?? ""),
+                text: typeof text === "string" ? text : "",
               },
             ],
           } satisfies CallToolResult;
+        } catch (message) {
+          return error(message);
+        }
+      })
+    );
+  }
+
+  if (AuthenticationHelper.canAccess("documents.delete", scopes)) {
+    server.registerTool(
+      "delete_document",
+      {
+        title: "Delete document",
+        description:
+          "Deletes a document by its ID. The document is moved to the trash and can be restored later. Set archive to true to archive the document instead of deleting it.",
+        annotations: {
+          idempotentHint: false,
+          readOnlyHint: false,
+        },
+        inputSchema: {
+          id: z
+            .string()
+            .describe("The unique identifier of the document to delete."),
+          archive: z
+            .boolean()
+            .optional()
+            .describe(
+              "Set to true to archive the document instead of deleting it. Archived documents remain searchable in the archive view."
+            ),
+        },
+      },
+      withTracing("delete_document", async ({ id, archive }, context) => {
+        try {
+          const ctx = buildAPIContext(context);
+          const { user } = ctx.state.auth;
+
+          await sequelize.transaction(async (transaction) => {
+            ctx.state.transaction = transaction;
+            ctx.context.transaction = transaction;
+
+            const document = await Document.findByPk(id, {
+              userId: user.id,
+              rejectOnEmpty: true,
+              transaction,
+            });
+
+            if (archive) {
+              authorize(user, "archive", document);
+              await document.archiveWithCtx(ctx);
+            } else {
+              authorize(user, "delete", document);
+              await document.destroyWithCtx(ctx);
+            }
+          });
+
+          return success({ success: true });
+        } catch (message) {
+          return error(message);
+        }
+      })
+    );
+  }
+
+  if (AuthenticationHelper.canAccess("documents.restore", scopes)) {
+    server.registerTool(
+      "restore_document",
+      {
+        title: "Restore document",
+        description:
+          "Restores an archived or trashed document, making it active again. Optionally provide a collectionId to restore the document into a different collection; otherwise it returns to its original collection.",
+        annotations: {
+          idempotentHint: false,
+          readOnlyHint: false,
+        },
+        inputSchema: {
+          id: z
+            .string()
+            .describe("The unique identifier of the document to restore."),
+          collectionId: optionalString().describe(
+            "The collection to restore the document into. Defaults to its original collection."
+          ),
+        },
+      },
+      withTracing("restore_document", async ({ id, collectionId }, context) => {
+        try {
+          const ctx = buildAPIContext(context);
+          const { user } = ctx.state.auth;
+
+          const document = await sequelize.transaction(async (transaction) => {
+            ctx.state.transaction = transaction;
+            ctx.context.transaction = transaction;
+
+            const document = await Document.findByPk(id, {
+              userId: user.id,
+              paranoid: false,
+              rejectOnEmpty: true,
+              transaction,
+            });
+
+            if (!document.deletedAt && !document.archivedAt) {
+              throw ValidationError("Document is not archived or trashed");
+            }
+
+            await documentRestorer(ctx, { document, collectionId });
+
+            return document;
+          });
+
+          // Resolved after commit so the breadcrumb reflects the new location.
+          const breadcrumb = await getDocumentBreadcrumb(document, user);
+          return success({
+            success: true,
+            ...pathToUrl(user.team, {
+              id: document.id,
+              title: document.title,
+              url: document.url,
+            }),
+            ...(breadcrumb !== undefined && { breadcrumb }),
+          });
         } catch (message) {
           return error(message);
         }

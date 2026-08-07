@@ -24,6 +24,7 @@ import { presentUser, presentPolicies } from "@server/presenters";
 import type { APIContext } from "@server/types";
 import { RateLimiterStrategy } from "@server/utils/RateLimiter";
 import { safeEqual } from "@server/utils/crypto";
+import { QueryHelper } from "@server/storage/QueryHelper";
 import { getDetailsForEmailUpdateToken } from "@server/utils/jwt";
 import pagination from "../middlewares/pagination";
 import * as T from "./schema";
@@ -40,6 +41,8 @@ router.post(
       ctx.input.body;
 
     const actor = ctx.state.auth.user;
+    authorize(actor, "listUsers", actor.team);
+
     let where: WhereOptions<User> = {
       teamId: actor.teamId,
     };
@@ -128,10 +131,10 @@ router.post(
         [Op.and]: {
           [Op.or]: [
             Sequelize.literal(
-              `unaccent(LOWER(email)) like unaccent(LOWER(:query))`
+              `unaccent(LOWER("user"."email")) like unaccent(LOWER(:query))`
             ),
             Sequelize.literal(
-              `unaccent(LOWER(name)) like unaccent(LOWER(:query))`
+              `unaccent(LOWER("user"."name")) like unaccent(LOWER(:query))`
             ),
           ],
         },
@@ -152,12 +155,16 @@ router.post(
       };
     }
 
-    const replacements = { query: `%${query}%` };
+    const replacements = { query: QueryHelper.likeContains(query ?? "") };
 
     const [users, total] = await Promise.all([
       User.findAll({
         where,
         replacements,
+        // Only admins can see who invited a user.
+        include: actor.isAdmin
+          ? [{ association: "invitedBy", required: false }]
+          : undefined,
         order: [[sort, direction]],
         offset: ctx.state.pagination.offset,
         limit: ctx.state.pagination.limit,
@@ -536,7 +543,7 @@ router.post(
   validate(T.UsersInviteSchema),
   transaction(),
   async (ctx: APIContext<T.UsersInviteReq>) => {
-    const { invites } = ctx.input.body;
+    const { invites, suppressEmail } = ctx.input.body;
     const { user } = ctx.state.auth;
 
     if (invites.length > UserValidation.maxInvitesPerRequest) {
@@ -546,7 +553,7 @@ router.post(
     }
     authorize(user, "inviteUser", user.team);
 
-    const response = await userInviter(ctx, { invites });
+    const response = await userInviter(ctx, { invites, suppressEmail });
 
     ctx.body = {
       data: {

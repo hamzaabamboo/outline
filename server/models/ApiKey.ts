@@ -21,7 +21,6 @@ import { hash } from "@server/utils/crypto";
 import User from "./User";
 import ParanoidModel from "./base/ParanoidModel";
 import { SkipChangeset } from "./decorators/Changeset";
-import Fix from "./decorators/Fix";
 import AuthenticationHelper from "@shared/helpers/AuthenticationHelper";
 import Length from "./validators/Length";
 
@@ -35,7 +34,6 @@ import Length from "./validators/Length";
     ],
   },
 }))
-@Fix
 class ApiKey extends ParanoidModel<
   InferAttributes<ApiKey>,
   Partial<InferCreationAttributes<ApiKey>>
@@ -50,19 +48,20 @@ class ApiKey extends ParanoidModel<
     max: ApiKeyValidation.maxNameLength,
     msg: `Name must be between ${ApiKeyValidation.minNameLength} and ${ApiKeyValidation.maxNameLength} characters`,
   })
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   /** A list of scopes that this API key has access to */
-  @Matches(/[\/\.\w\s]*/, {
+  @Matches(AuthenticationHelper.scopeGrammarRegex, {
     each: true,
+    message: "Scope must be a valid API scope",
   })
   @Column(DataType.ARRAY(DataType.STRING))
   scope: string[] | null;
 
   /** @deprecated The plain text value of the API key, removed soon. */
   @Unique
-  @Column
+  @Column(DataType.STRING)
   secret: string;
 
   /** The cached plain text value. Only available when creating the API key */
@@ -71,23 +70,23 @@ class ApiKey extends ParanoidModel<
 
   /** The hashed value of the API key */
   @Unique
-  @Column
+  @Column(DataType.STRING)
   @SkipChangeset
   hash: string;
 
   /** The last 4 characters of the API key */
-  @Column
+  @Column(DataType.STRING)
   @SkipChangeset
   last4: string;
 
   /** The date and time when this API key will expire */
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   expiresAt: Date | null;
 
   /** The date and time when this API key was last used */
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   @SkipChangeset
   lastActiveAt: Date | null;
 
@@ -153,7 +152,7 @@ class ApiKey extends ParanoidModel<
   user: User;
 
   @ForeignKey(() => User)
-  @Column
+  @Column(DataType.UUID)
   userId: string;
 
   // methods

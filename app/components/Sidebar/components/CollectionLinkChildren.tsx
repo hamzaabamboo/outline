@@ -1,4 +1,4 @@
-import noop from "lodash/noop";
+import { noop } from "es-toolkit/compat";
 import { observer } from "mobx-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,10 +13,14 @@ import useStores from "~/hooks/useStores";
 import history from "~/utils/history";
 import useCollectionDocuments from "../hooks/useCollectionDocuments";
 import { useDropToChangeCollection } from "../hooks/useDragAndDrop";
+import SidebarExpansionContext, {
+  useSidebarExpansionState,
+} from "./SidebarExpansionContext";
 import DocumentLink from "./DocumentLink";
 import DropCursor from "./DropCursor";
 import Folder from "./Folder";
 import PlaceholderCollections from "./PlaceholderCollections";
+import { useSidebarDisclosure } from "./SidebarDisclosureContext";
 import SidebarLink from "./SidebarLink";
 
 // The number of child documents to initially render
@@ -27,6 +31,8 @@ type Props = {
   collection: Collection;
   /** Whether the children are shown in an expanded state. */
   expanded: boolean;
+  /** Indentation depth of the parent collection. */
+  depth?: number;
   /** Function to prefetch a document by ID. */
   prefetchDocument?: (documentId: string) => Promise<Document | void>;
   /** Element to display above the child documents */
@@ -36,65 +42,90 @@ type Props = {
 function CollectionLinkChildren({
   collection,
   expanded,
+  depth = 0,
   prefetchDocument,
   children,
 }: Props) {
+  // Documents sit one level below the collection, with a minimum that leaves
+  // room for their own disclosure to the left of the label.
+  const childDepth = Math.max(depth + 1, 2);
   const pageSize = DEFAULT_PAGE_SIZE;
-  const { documents } = useStores();
+  const { documents, ui } = useStores();
   const { t } = useTranslation();
-  const childDocuments = useCollectionDocuments(collection, documents.active);
+  const activeDocument = documents.active;
+  const childDocuments = useCollectionDocuments(collection, activeDocument);
   const [showing, setShowing] = useState(pageSize);
 
   useEffect(() => {
     if (!expanded) {
       setShowing(pageSize);
     }
-  }, [expanded]);
+  }, [expanded, pageSize]);
 
   const showMore = useCallback(() => {
     if (childDocuments && childDocuments.length > showing) {
       setShowing((value) => value + pageSize);
     }
-  }, [childDocuments, showing]);
+  }, [childDocuments, showing, pageSize]);
+
+  const expansion = useSidebarExpansionState(
+    childDocuments,
+    ui.activeDocumentId
+  );
+
+  // Handle collection-level alt-click cascade from DraggableCollectionLink
+  const handleCascadeExpand = useCallback(() => {
+    if (childDocuments) {
+      expansion.expandAll(childDocuments);
+    }
+  }, [expansion, childDocuments]);
+
+  const handleCascadeCollapse = useCallback(() => {
+    expansion.collapseAll();
+  }, [expansion]);
+
+  useSidebarDisclosure(handleCascadeExpand, handleCascadeCollapse);
 
   return (
-    <Folder expanded={expanded}>
-      <DynamicDropCursor collection={collection} />
-      <DocumentsLoader collection={collection} enabled={expanded}>
-        {children}
-        {!childDocuments && (
-          <ResizingHeightContainer hideOverflow>
-            <Loading />
-          </ResizingHeightContainer>
-        )}
-        {childDocuments?.slice(0, showing).map((node, index) => (
-          <DocumentLink
-            key={node.id}
-            node={node}
-            collection={collection}
-            activeDocument={documents.active}
-            prefetchDocument={prefetchDocument}
-            isDraft={node.isDraft}
-            depth={2}
-            index={index}
-          />
-        ))}
-        {childDocuments?.length === 0 && !children && (
-          <SidebarLink
-            label={
-              <Text type="tertiary" size="small" italic>
-                {t("Empty")}
-              </Text>
-            }
-            onClick={() => history.push(collection.url)}
-            depth={2}
-          />
-        )}
-        {childDocuments && (
-          <Waypoint key={showing} onEnter={showMore} fireOnRapidScroll />
-        )}
-      </DocumentsLoader>
-    </Folder>
+    <SidebarExpansionContext.Provider value={expansion}>
+      <Folder expanded={expanded}>
+        <DynamicDropCursor collection={collection} />
+        <DocumentsLoader collection={collection} enabled={expanded}>
+          {children}
+          {!childDocuments && (
+            <ResizingHeightContainer hideOverflow>
+              <Loading />
+            </ResizingHeightContainer>
+          )}
+          {childDocuments?.slice(0, showing).map((node, index) => (
+            <DocumentLink
+              key={node.id}
+              node={node}
+              collection={collection}
+              activeDocument={activeDocument}
+              prefetchDocument={prefetchDocument}
+              isDraft={node.isDraft}
+              depth={childDepth}
+              index={index}
+            />
+          ))}
+          {childDocuments?.length === 0 && !children && (
+            <SidebarLink
+              label={
+                <Text type="tertiary" size="small" italic>
+                  {t("Empty")}
+                </Text>
+              }
+              onClick={() => history.push(collection.url)}
+              depth={childDepth}
+            />
+          )}
+          {childDocuments && (
+            <Waypoint key={showing} onEnter={showMore} fireOnRapidScroll />
+          )}
+        </DocumentsLoader>
+      </Folder>
+    </SidebarExpansionContext.Provider>
   );
 }
 
@@ -118,7 +149,7 @@ const DynamicDropCursor = observer(
 );
 
 const Loading = styled(PlaceholderCollections)`
-  margin-left: 44px;
+  margin-inline-start: 44px;
   min-height: 90px;
 `;
 

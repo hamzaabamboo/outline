@@ -2,6 +2,7 @@ import emailProviders from "email-providers";
 import type { InferAttributes, InferCreationAttributes } from "sequelize";
 import {
   Column,
+  DataType,
   Table,
   BelongsTo,
   ForeignKey,
@@ -16,12 +17,10 @@ import { ValidationError } from "@server/errors";
 import Team from "./Team";
 import User from "./User";
 import IdModel from "./base/IdModel";
-import Fix from "./decorators/Fix";
 import IsFQDN from "./validators/IsFQDN";
 import Length from "./validators/Length";
 
 @Table({ tableName: "team_domains", modelName: "team_domain" })
-@Fix
 class TeamDomain extends IdModel<
   InferAttributes<TeamDomain>,
   Partial<InferCreationAttributes<TeamDomain>>
@@ -31,9 +30,12 @@ class TeamDomain extends IdModel<
     msg: "You chose a restricted domain, please try another.",
   })
   @NotEmpty
-  @Length({ max: 255, msg: "name must be 255 characters or less" })
+  @Length({
+    max: TeamValidation.maxDomainLength,
+    msg: `name must be ${TeamValidation.maxDomainLength} characters or less`,
+  })
   @IsFQDN
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   // associations
@@ -42,14 +44,14 @@ class TeamDomain extends IdModel<
   team: Team;
 
   @ForeignKey(() => Team)
-  @Column
+  @Column(DataType.UUID)
   teamId: string;
 
   @BelongsTo(() => User, "createdById")
   createdBy: User;
 
   @ForeignKey(() => User)
-  @Column
+  @Column(DataType.UUID)
   createdById: string;
 
   // hooks

@@ -1,7 +1,5 @@
 import invariant from "invariant";
-import isEmpty from "lodash/isEmpty";
-import orderBy from "lodash/orderBy";
-import sortBy from "lodash/sortBy";
+import { isEmpty, orderBy, sortBy } from "es-toolkit/compat";
 import { computed, action, runInAction } from "mobx";
 import {
   CollectionPermission,
@@ -93,6 +91,23 @@ export default class CollectionsStore extends Store<Collection> {
       attachmentId,
       ...options,
     });
+  };
+
+  @action
+  duplicate = async (
+    collection: Collection,
+    options?: {
+      name?: string;
+    }
+  ): Promise<Collection> => {
+    const res = await client.post("/collections.duplicate", {
+      id: collection.id,
+      ...options,
+    });
+    invariant(res?.data, "Data should be available");
+
+    this.addPolicies(res.policies);
+    return this.add(res.data);
   };
 
   @action

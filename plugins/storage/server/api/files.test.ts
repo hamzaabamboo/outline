@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import FormData from "form-data";
 import { ensureDirSync } from "fs-extra";
+import JWT from "jsonwebtoken";
 import { FileOperationState, FileOperationType } from "@shared/types";
 import env from "@server/env";
 import AttachmentHelper, {
@@ -20,14 +21,13 @@ import { randomUUID } from "node:crypto";
 const server = getTestServer();
 
 // Increase timeout for all tests in this file
-jest.setTimeout(10000);
+vi.setConfig({ testTimeout: 10000 });
 
 describe("#files.create", () => {
   it("should fail with status 400 bad request if key is invalid", async () => {
     const user = await buildUser();
-    const res = await server.post("/api/files.create", {
+    const res = await server.post("/api/files.create", user, {
       body: {
-        token: user.getJwtToken(),
         key: "public/foo/bar/baz.png",
       },
     });
@@ -52,7 +52,7 @@ describe("#files.create", () => {
     const form = new FormData();
     form.append("key", attachment.key);
     form.append("file", content, fileName);
-    form.append("token", user.getJwtToken());
+    form.append("token", user.getSessionToken());
 
     const res = await server.post(`/api/files.create`, {
       headers: form.getHeaders(),
@@ -89,13 +89,77 @@ describe("#files.create", () => {
     const form = new FormData();
     form.append("key", attachment.key);
     form.append("file", content, fileName);
-    form.append("token", user.getJwtToken());
+    form.append("token", user.getSessionToken());
 
     const res = await server.post(`/api/files.create`, {
       headers: form.getHeaders(),
       body: form,
     });
     expect(res.status).toEqual(400);
+  });
+
+  it("should fail with status 400 if uploaded file exceeds declared size", async () => {
+    const user = await buildUser();
+    const fileName = "images.docx";
+    const attachment = await buildAttachment(
+      {
+        teamId: user.teamId,
+        userId: user.id,
+        size: 100,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      fileName
+    );
+
+    const content = await readFile(
+      path.resolve(__dirname, "..", "test", "fixtures", fileName)
+    );
+    const form = new FormData();
+    form.append("key", attachment.key);
+    form.append("file", content, fileName);
+    form.append("token", user.getSessionToken());
+
+    const res = await server.post(`/api/files.create`, {
+      headers: form.getHeaders(),
+      body: form,
+    });
+    expect(res.status).toEqual(400);
+    expect(
+      existsSync(path.join(env.FILE_STORAGE_LOCAL_ROOT_DIR, attachment.key))
+    ).toBe(false);
+  });
+
+  it("should update attachment size to actual uploaded bytes", async () => {
+    const user = await buildUser();
+    const fileName = "images.docx";
+    const attachment = await buildAttachment(
+      {
+        teamId: user.teamId,
+        userId: user.id,
+        size: 1_000_000,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      fileName
+    );
+
+    const content = await readFile(
+      path.resolve(__dirname, "..", "test", "fixtures", fileName)
+    );
+    const form = new FormData();
+    form.append("key", attachment.key);
+    form.append("file", content, fileName);
+    form.append("token", user.getSessionToken());
+
+    const res = await server.post(`/api/files.create`, {
+      headers: form.getHeaders(),
+      body: form,
+    });
+    expect(res.status).toEqual(200);
+
+    await attachment.reload();
+    expect(Number(attachment.size)).toEqual(content.byteLength);
   });
 
   it("should succeed with status 200 ok and create a file", async () => {
@@ -117,7 +181,7 @@ describe("#files.create", () => {
     const form = new FormData();
     form.append("key", attachment.key);
     form.append("file", content, fileName);
-    form.append("token", user.getJwtToken());
+    form.append("token", user.getSessionToken());
 
     const res = await server.post(`/api/files.create`, {
       headers: form.getHeaders(),
@@ -130,6 +194,110 @@ describe("#files.create", () => {
     expect(
       existsSync(path.join(env.FILE_STORAGE_LOCAL_ROOT_DIR, attachment.key))
     ).toBe(true);
+  });
+
+  it("should succeed with a valid upload signature and no session", async () => {
+    const user = await buildUser();
+    const fileName = "images.docx";
+    const attachment = await buildAttachment(
+      {
+        teamId: user.teamId,
+        userId: user.id,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      fileName
+    );
+
+    const sig = JWT.sign(
+      { key: attachment.key, type: "attachment-upload" },
+      env.SECRET_KEY,
+      { expiresIn: 3600 }
+    );
+
+    const content = await readFile(
+      path.resolve(__dirname, "..", "test", "fixtures", fileName)
+    );
+    const form = new FormData();
+    form.append("key", attachment.key);
+    form.append("file", content, fileName);
+    form.append("sig", sig);
+
+    const res = await server.post(`/api/files.create`, {
+      headers: form.getHeaders(),
+      body: form,
+    });
+
+    const body = await res.json();
+    expect(res.status).toEqual(200);
+    expect(body.success).toEqual(true);
+    expect(
+      existsSync(path.join(env.FILE_STORAGE_LOCAL_ROOT_DIR, attachment.key))
+    ).toBe(true);
+  });
+
+  it("should fail with a signature scoped to a different key", async () => {
+    const user = await buildUser();
+    const fileName = "images.docx";
+    const attachment = await buildAttachment(
+      {
+        teamId: user.teamId,
+        userId: user.id,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      fileName
+    );
+
+    const sig = JWT.sign(
+      { key: "public/foo/bar/other.png", type: "attachment-upload" },
+      env.SECRET_KEY,
+      { expiresIn: 3600 }
+    );
+
+    const content = await readFile(
+      path.resolve(__dirname, "..", "test", "fixtures", fileName)
+    );
+    const form = new FormData();
+    form.append("key", attachment.key);
+    form.append("file", content, fileName);
+    form.append("sig", sig);
+
+    const res = await server.post(`/api/files.create`, {
+      headers: form.getHeaders(),
+      body: form,
+    });
+    expect(res.status).toEqual(401);
+    expect(
+      existsSync(path.join(env.FILE_STORAGE_LOCAL_ROOT_DIR, attachment.key))
+    ).toBe(false);
+  });
+
+  it("should fail with status 401 when neither session nor signature is provided", async () => {
+    const user = await buildUser();
+    const fileName = "images.docx";
+    const attachment = await buildAttachment(
+      {
+        teamId: user.teamId,
+        userId: user.id,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+      fileName
+    );
+
+    const content = await readFile(
+      path.resolve(__dirname, "..", "test", "fixtures", fileName)
+    );
+    const form = new FormData();
+    form.append("key", attachment.key);
+    form.append("file", content, fileName);
+
+    const res = await server.post(`/api/files.create`, {
+      headers: form.getHeaders(),
+      body: form,
+    });
+    expect(res.status).toEqual(401);
   });
 });
 
@@ -198,7 +366,7 @@ describe("#files.get", () => {
     const form = new FormData();
     form.append("key", attachment.key);
     form.append("file", content, fileName);
-    form.append("token", user.getJwtToken());
+    form.append("token", user.getSessionToken());
 
     await server.post(`/api/files.create`, {
       headers: form.getHeaders(),
@@ -234,7 +402,7 @@ describe("#files.get", () => {
     const form = new FormData();
     form.append("key", attachment.key);
     form.append("file", content, fileName);
-    form.append("token", user.getJwtToken());
+    form.append("token", user.getSessionToken());
 
     await server.post(`/api/files.create`, {
       headers: form.getHeaders(),
@@ -368,7 +536,7 @@ describe("#files.get", () => {
     // Non-owner user should be able to access public-read attachment
     const res = await server.get(`/api/files.get?key=${key}`, {
       headers: {
-        Authorization: `Bearer ${otherUser.getJwtToken()}`,
+        Authorization: `Bearer ${otherUser.getSessionToken()}`,
       },
     });
     expect(res.status).toEqual(200);
@@ -403,7 +571,7 @@ describe("#files.get", () => {
     // Non-owner user should NOT be able to access private attachment
     const res = await server.get(`/api/files.get?key=${key}`, {
       headers: {
-        Authorization: `Bearer ${otherUser.getJwtToken()}`,
+        Authorization: `Bearer ${otherUser.getSessionToken()}`,
       },
     });
     expect(res.status).toEqual(403);

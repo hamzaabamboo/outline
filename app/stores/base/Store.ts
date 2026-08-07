@@ -1,13 +1,13 @@
 import commandScore from "command-score";
 import invariant from "invariant";
-// oxlint-disable-next-line lodash/import-scope
-import type { ObjectIterateeCustom } from "lodash";
-import deburr from "lodash/deburr";
-import filter from "lodash/filter";
-import find from "lodash/find";
-import flatten from "lodash/flatten";
-import lowerFirst from "lodash/lowerFirst";
-import orderBy from "lodash/orderBy";
+import {
+  deburr,
+  filter,
+  find,
+  flatten,
+  lowerFirst,
+  orderBy,
+} from "es-toolkit/compat";
 import { observable, action, computed, runInAction } from "mobx";
 import pluralize from "pluralize";
 import { Pagination } from "@shared/constants";
@@ -23,6 +23,12 @@ import type { PaginationParams, PartialExcept, Properties } from "~/types";
 import { client } from "~/utils/ApiClient";
 import { AuthorizationError, NotFoundError } from "~/utils/errors";
 import ParanoidModel from "~/models/base/ParanoidModel";
+
+type ListPredicate<T> =
+  | ((value: T, index: number, collection: ArrayLike<T>) => boolean)
+  | PropertyKey
+  | [PropertyKey, unknown]
+  | Partial<T>;
 
 export enum RPCAction {
   Info = "info",
@@ -44,6 +50,7 @@ export type PaginatedResponse<T> = T[] & {
   };
 };
 
+// oxlint-disable-next-line no-explicit-any
 export type FetchPageParams = PaginationParams & Record<string, any>;
 
 export default abstract class Store<T extends Model> {
@@ -59,6 +66,7 @@ export default abstract class Store<T extends Model> {
   @observable
   isLoaded = false;
 
+  // oxlint-disable-next-line no-explicit-any
   requests: Map<string, Promise<any>> = new Map();
 
   model: typeof Model;
@@ -163,8 +171,16 @@ export default abstract class Store<T extends Model> {
     return item;
   };
 
+  /**
+   * Remove a model, and any models that cascade from it, from the store.
+   *
+   * @param id the ID of the model to remove.
+   * @param options.permanent whether soft-deletable models should be evicted
+   * from the store entirely rather than marked as deleted. Use when the model
+   * is gone for good, or is no longer accessible to the current user.
+   */
   @action
-  remove(id: string): void {
+  remove(id: string, options?: { permanent?: boolean }): void {
     const model = this.data.get(id);
     if (!model) {
       return;
@@ -187,7 +203,7 @@ export default abstract class Store<T extends Model> {
           }
 
           if (deleteBehavior === "cascade") {
-            store.remove(item.id);
+            store.remove(item.id, options);
           } else if (deleteBehavior === "null") {
             // @ts-expect-error TODO
             item[relation.idKey] = null;
@@ -203,7 +219,7 @@ export default abstract class Store<T extends Model> {
 
     LifecycleManager.executeHooks(model.constructor, "beforeRemove", model);
 
-    if (model instanceof ParanoidModel) {
+    if (model instanceof ParanoidModel && !options?.permanent) {
       model.deletedAt = new Date().toISOString();
     } else {
       this.data.delete(id);
@@ -346,6 +362,13 @@ export default abstract class Store<T extends Model> {
     }
   }
 
+  /**
+   * Whether individual models can be fetched by ID from this store.
+   */
+  get canFetchById(): boolean {
+    return this.actions.includes(RPCAction.Info);
+  }
+
   @action
   async fetch(
     id: string,
@@ -401,7 +424,7 @@ export default abstract class Store<T extends Model> {
 
   @action
   fetchPage = async (
-    params?: FetchPageParams | undefined
+    params?: FetchPageParams
   ): Promise<PaginatedResponse<T>> => {
     if (!this.actions.includes(RPCAction.List)) {
       throw new Error(`Cannot list ${this.modelName}`);
@@ -430,6 +453,7 @@ export default abstract class Store<T extends Model> {
 
   @action
   fetchAll = async (
+    // oxlint-disable-next-line no-explicit-any
     params?: Record<string, any>
   ): Promise<PaginatedResponse<T>> => {
     const limit = params?.limit ?? Pagination.defaultLimit;
@@ -472,7 +496,7 @@ export default abstract class Store<T extends Model> {
    *
    * @param predicate A function that returns true if the item matches, or an object with the properties to match.
    */
-  find = (predicate: ObjectIterateeCustom<T, boolean>): T | undefined =>
+  find = (predicate: ListPredicate<T>): T | undefined =>
     // @ts-expect-error not sure why T is incompatible
     find(this.orderedData, predicate);
 
@@ -481,7 +505,7 @@ export default abstract class Store<T extends Model> {
    *
    * @param predicate A function that returns true if the item matches, or an object with the properties to match.
    */
-  filter = (predicate: ObjectIterateeCustom<T, boolean>): T[] =>
+  filter = (predicate: ListPredicate<T>): T[] =>
     // @ts-expect-error not sure why T is incompatible
     filter(this.orderedData, predicate);
 }

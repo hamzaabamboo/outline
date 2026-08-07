@@ -3,6 +3,7 @@ import { Node } from "prosemirror-model";
 import headingToSlug from "../editor/lib/headingToSlug";
 import textBetween from "../editor/lib/textBetween";
 import type { ProsemirrorData } from "../types";
+import { hashString } from "./string";
 import { TextHelper } from "./TextHelper";
 import env from "../env";
 import { findChildren } from "@shared/editor/queries/findChildren";
@@ -74,47 +75,6 @@ export class ProsemirrorHelper {
       return node;
     }
     return removeMarksInner(json);
-  }
-
-  /**
-   * Get a new empty document.
-   *
-   * @returns a new empty document as JSON.
-   */
-  static getEmptyDocument(): ProsemirrorData {
-    return {
-      type: "doc",
-      content: [
-        {
-          content: [],
-          type: "paragraph",
-        },
-      ],
-    };
-  }
-
-  /**
-   * Returns true if the data looks like an empty document.
-   *
-   * @param data The ProsemirrorData to check.
-   * @returns True if the document is empty.
-   */
-  static isEmptyData(data: ProsemirrorData): boolean {
-    if (data.type !== "doc") {
-      return false;
-    }
-
-    if (data.content?.length === 1) {
-      const node = data.content[0];
-      return (
-        node.type === "paragraph" &&
-        (node.content === null ||
-          node.content === undefined ||
-          node.content.length === 0)
-      );
-    }
-
-    return !data.content || data.content.length === 0;
   }
 
   /**
@@ -219,7 +179,12 @@ export class ProsemirrorHelper {
         }
       });
 
-      (node.attrs.marks ?? []).forEach((mark: any) => {
+      (
+        (node.attrs.marks ?? []) as {
+          type: string;
+          attrs: Partial<CommentMark>;
+        }[]
+      ).forEach((mark) => {
         if (mark.type === "comment") {
           comments.push({
             ...mark.attrs,
@@ -271,7 +236,9 @@ export class ProsemirrorHelper {
     const anchors: NodeAnchor[] = [];
     doc.descendants((node, pos) => {
       if (Array.isArray(node.attrs?.marks)) {
-        node.attrs.marks.forEach((mark: any) => {
+        (
+          node.attrs.marks as { type?: string; attrs?: { id?: string } }[]
+        ).forEach((mark) => {
           if (mark?.type === "comment" && mark?.attrs?.id) {
             anchors.push({
               pos,
@@ -291,6 +258,76 @@ export class ProsemirrorHelper {
       ...ProsemirrorHelper.getAnchorsForHeadingNodes(doc),
       ...ProsemirrorHelper.getAnchorsForImageNodes(doc),
     ];
+  }
+
+  /**
+   * Computes a stable identifier for a node derived from its type and
+   * attributes. The `marks` attribute is excluded as it changes when comments
+   * are added or removed from the node.
+   *
+   * @param node the node to compute an identifier for.
+   * @returns a hex-encoded hash identifying the node.
+   */
+  static getNodeHash(node: Node): string {
+    const { marks: _marks, ...attrs } = node.attrs;
+    const sorted = Object.keys(attrs)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = attrs[key];
+        return acc;
+      }, {});
+
+    return hashString(`${node.type.name}:${JSON.stringify(sorted)}`);
+  }
+
+  /**
+   * Finds a node in the document by the hash of its attributes, see
+   * `getNodeHash`. When multiple nodes share the same hash the first
+   * occurrence in document order is returned.
+   *
+   * @param doc Prosemirror document node.
+   * @param hash the node hash to search for.
+   * @returns the matching node and its position, or null if no match.
+   */
+  static findNodeByHash(
+    doc: Node,
+    hash: string
+  ): { node: Node; pos: number } | null {
+    let result: { node: Node; pos: number } | null = null;
+
+    doc.descendants((node, pos) => {
+      if (result) {
+        return false;
+      }
+      if (!node.isText && ProsemirrorHelper.getNodeHash(node) === hash) {
+        result = { node, pos };
+        return false;
+      }
+      return true;
+    });
+
+    return result;
+  }
+
+  /**
+   * Returns the ids of comment marks attached to the node at the given position.
+   *
+   * @param doc Prosemirror document node.
+   * @param pos Position of the node within the document.
+   * @returns array of comment ids anchored to the node.
+   */
+  static getCommentIdsAtPos(doc: Node, pos: number): string[] {
+    const node = doc.nodeAt(pos);
+    if (!node || !Array.isArray(node.attrs?.marks)) {
+      return [];
+    }
+
+    return (node.attrs.marks as { type?: string; attrs?: { id?: string } }[])
+      .filter(
+        (mark): mark is { type: "comment"; attrs: { id: string } } =>
+          mark?.type === "comment" && !!mark?.attrs?.id
+      )
+      .map((mark) => mark.attrs.id);
   }
 
   /**
@@ -499,19 +536,19 @@ export class ProsemirrorHelper {
       if (
         node.type === "image" &&
         node.attrs?.src &&
-        regex.test(String(node.attrs.src))
+        regex.test(node.attrs.src as string)
       ) {
         node.attrs.src = env.URL + node.attrs.src;
       } else if (
         node.type === "video" &&
         node.attrs?.src &&
-        regex.test(String(node.attrs.src))
+        regex.test(node.attrs.src as string)
       ) {
         node.attrs.src = env.URL + node.attrs.src;
       } else if (
         node.type === "attachment" &&
         node.attrs?.href &&
-        regex.test(String(node.attrs.href))
+        regex.test(node.attrs.href as string)
       ) {
         node.attrs.href = env.URL + node.attrs.href;
       }

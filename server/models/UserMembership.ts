@@ -29,7 +29,6 @@ import GroupMembership from "./GroupMembership";
 import User from "./User";
 import IdModel from "./base/IdModel";
 import type { HookContext } from "./base/Model";
-import Fix from "./decorators/Fix";
 
 /**
  * Represents a users's permission to access a collection or document.
@@ -68,7 +67,6 @@ import Fix from "./decorators/Fix";
   },
 }))
 @Table({ tableName: "user_permissions", modelName: "user_permission" })
-@Fix
 class UserMembership extends IdModel<
   InferAttributes<UserMembership>,
   Partial<InferCreationAttributes<UserMembership>>
@@ -84,7 +82,7 @@ class UserMembership extends IdModel<
     max: 256,
     msg: `index must be 256 characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   index: string | null;
 
   // associations
@@ -193,7 +191,7 @@ class UserMembership extends IdModel<
       memberships.map((membership) =>
         membership?.sourceId
           ? this.findByPk(membership.sourceId, options)
-          : membership
+          : Promise.resolve(membership)
       )
     );
 

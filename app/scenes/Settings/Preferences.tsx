@@ -22,6 +22,7 @@ import useCurrentUser from "~/hooks/useCurrentUser";
 import usePolicy from "~/hooks/usePolicy";
 import useStores from "~/hooks/useStores";
 import UserDelete from "../UserDelete";
+import { AutoLaunchSetting } from "./components/AutoLaunchSetting";
 import SettingRow from "./components/SettingRow";
 
 function Preferences() {
@@ -66,6 +67,15 @@ function Preferences() {
   const handleCodeBlockLineNumbersChange = React.useCallback(
     async (checked: boolean) => {
       user.setPreference(UserPreference.CodeBlockLineNumers, checked);
+      await user.save();
+      toast.success(t("Preferences saved"));
+    },
+    [user, t]
+  );
+
+  const handleCommentsInGutterChange = React.useCallback(
+    async (checked: boolean) => {
+      user.setPreference(UserPreference.CommentsInGutter, checked);
       await user.save();
       toast.success(t("Preferences saved"));
     },
@@ -188,7 +198,7 @@ function Preferences() {
           value={user.language}
           onChange={handleLanguageChange}
           label={t("Language")}
-          hideLabel
+          labelHidden
         />
       </SettingRow>
       <SettingRow
@@ -201,7 +211,7 @@ function Preferences() {
           value={ui.theme}
           onChange={handleThemeChange}
           label={t("Appearance")}
-          hideLabel
+          labelHidden
         />
       </SettingRow>
       <SettingRow
@@ -222,13 +232,27 @@ function Preferences() {
         name={UserPreference.CodeBlockLineNumers}
         label={t("Show line numbers")}
         description={t("Show line numbers on code blocks in documents.")}
-        border={false}
       >
         <Switch
           id={UserPreference.CodeBlockLineNumers}
           name={UserPreference.CodeBlockLineNumers}
           checked={user.getPreference(UserPreference.CodeBlockLineNumers)}
           onChange={handleCodeBlockLineNumbersChange}
+        />
+      </SettingRow>
+      <SettingRow
+        name={UserPreference.CommentsInGutter}
+        label={t("Show comment marker")}
+        description={t(
+          "Display a marker beside lines in the editor that contain comments."
+        )}
+        border={false}
+      >
+        <Switch
+          id={UserPreference.CommentsInGutter}
+          name={UserPreference.CommentsInGutter}
+          checked={user.getPreference(UserPreference.CommentsInGutter)}
+          onChange={handleCommentsInGutterChange}
         />
       </SettingRow>
 
@@ -280,6 +304,7 @@ function Preferences() {
           onChange={handleEnableSmartTextChange}
         />
       </SettingRow>
+      <AutoLaunchSetting />
       <SettingRow
         border={false}
         name={UserPreference.NotificationBadge}
@@ -293,7 +318,7 @@ function Preferences() {
           value={user.getPreference(UserPreference.NotificationBadge)}
           onChange={handleNotificationBadgeChange}
           label={t("Notification badge")}
-          hideLabel
+          labelHidden
         />
       </SettingRow>
 

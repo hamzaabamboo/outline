@@ -40,6 +40,9 @@ async function teamPermanentDeleter(team: Team) {
   );
   const teamId = team.id;
 
+  // Attachments are destroyed as individual instances (rather than a bulk
+  // delete) so the BeforeDestroy hook runs and removes the associated file from
+  // storage.
   await Attachment.findAllInBatches<Attachment>(
     {
       where: {
@@ -47,22 +50,22 @@ async function teamPermanentDeleter(team: Team) {
       },
       batchLimit: 100,
     },
-    async (attachments, options) => {
-      await sequelize.transaction(async (transaction) => {
-        Logger.info(
-          "commands",
-          `Deleting attachments ${options.offset} – ${
-            (options.offset || 0) + (options?.limit || 0)
-          }…`
-        );
-        await Promise.all(
-          attachments.map((attachment) =>
-            attachment.destroy({
-              transaction,
-            })
-          )
-        );
-      });
+    async (attachments) => {
+      if (attachments.length > 0) {
+        await sequelize.transaction(async (transaction) => {
+          Logger.info(
+            "commands",
+            `Deleting ${attachments.length} attachments…`
+          );
+          await Promise.all(
+            attachments.map((attachment) =>
+              attachment.destroy({
+                transaction,
+              })
+            )
+          );
+        });
+      }
     }
   );
 
@@ -80,14 +83,6 @@ async function teamPermanentDeleter(team: Team) {
         const userIds = users.map((user) => user.id);
         await UserAuthentication.destroy({
           where: {
-            userId: userIds,
-          },
-          force: true,
-          transaction,
-        });
-        await Attachment.destroy({
-          where: {
-            teamId,
             userId: userIds,
           },
           force: true,

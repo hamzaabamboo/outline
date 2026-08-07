@@ -116,13 +116,13 @@ export type ActionContext = {
 
   // New API - work directly with Model instances
   getActiveModels: <T extends Model>(
-    modelClass: new (...args: any[]) => T
+    modelClass: new (...args: never[]) => T
   ) => T[];
   getActiveModel: <T extends Model>(
-    modelClass: new (...args: any[]) => T
+    modelClass: new (...args: never[]) => T
   ) => T | undefined;
   getActivePolicies: <T extends Model>(
-    modelClass: new (...args: any[]) => T
+    modelClass: new (...args: never[]) => T
   ) => Policy[];
   isModelActive: (model: Model) => boolean;
   activeModels: ReadonlySet<Model>;
@@ -160,7 +160,7 @@ export type Action = BaseAction & {
   tooltip?:
     | ((context: ActionContext) => React.ReactChild | undefined)
     | React.ReactChild;
-  perform: (context: ActionContext) => any;
+  perform: (context: ActionContext) => unknown;
 };
 
 export type InternalLinkAction = BaseAction & {
@@ -182,6 +182,8 @@ export type ActionWithChildren = BaseAction & {
       ) => (ActionVariant | ActionGroup | ActionSeparator)[])
     | (ActionVariant | ActionGroup | ActionSeparator)[];
 };
+
+export type ActionFactory = () => ActionWithChildren;
 
 export type ActionVariant =
   | Action

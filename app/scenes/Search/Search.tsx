@@ -16,9 +16,11 @@ import type {
 import { StatusFilter as TStatusFilter } from "@shared/types";
 import ArrowKeyNavigation from "~/components/ArrowKeyNavigation";
 import DocumentListItem from "~/components/DocumentListItem";
+import DocumentSelectionToolbar from "~/components/DocumentSelectionToolbar";
 import Fade from "~/components/Fade";
 import Flex from "~/components/Flex";
 import LoadingIndicator from "~/components/LoadingIndicator";
+import { ModelSelectionProvider } from "~/components/ModelSelectionContext";
 import RegisterKeyDown from "~/components/RegisterKeyDown";
 import Scene from "~/components/Scene";
 import Switch from "~/components/Switch";
@@ -30,7 +32,7 @@ import useStores from "~/hooks/useStores";
 import type { PaginationParams, SearchResult } from "~/types";
 import { preventDefault } from "~/utils/events";
 import { searchPath } from "~/utils/routeHelpers";
-import { decodeURIComponentSafe } from "~/utils/urls";
+import { decodeURIComponentSafe, isTruthyQueryValue } from "~/utils/urls";
 import CollectionFilter from "./components/CollectionFilter";
 import DateFilter from "./components/DateFilter";
 import { DocumentFilter } from "./components/DocumentFilter";
@@ -44,7 +46,7 @@ import useMobile from "~/hooks/useMobile";
 
 function Search() {
   const { t } = useTranslation();
-  const { documents, searches } = useStores();
+  const { documents, searches, policies } = useStores();
   const isMobile = useMobile();
 
   // routing
@@ -52,6 +54,7 @@ function Search() {
   const location = useLocation();
   const history = useHistory();
   const routeMatch = useRouteMatch<{ query: string }>();
+  const handleGoBack = React.useCallback(() => history.goBack(), [history]);
 
   // refs
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -67,10 +70,17 @@ function Search() {
   const userId = params.get("userId") ?? "";
   const documentId = params.get("documentId") ?? undefined;
   const dateFilter = (params.get("dateFilter") as TDateFilter) ?? "";
-  const statusFilter = params.getAll("statusFilter")?.length
-    ? (params.getAll("statusFilter") as TStatusFilter[])
-    : [TStatusFilter.Published, TStatusFilter.Draft];
-  const titleFilter = params.get("titleFilter") === "true";
+  // Keyed on the serialized value so the array keeps a stable identity between
+  // renders and can be used directly as a dependency.
+  const statusFilterKey = params.getAll("statusFilter").join(",");
+  const statusFilter = React.useMemo(
+    () =>
+      statusFilterKey
+        ? (statusFilterKey.split(",") as TStatusFilter[])
+        : [TStatusFilter.Published, TStatusFilter.Draft],
+    [statusFilterKey]
+  );
+  const titleFilter = isTruthyQueryValue(params.get("titleFilter"));
   const sort = (params.get("sort") as TSortFilter) ?? "";
   const direction = (params.get("direction") as TDirectionFilter) ?? "";
 
@@ -102,7 +112,7 @@ function Search() {
     }),
     [
       query,
-      JSON.stringify(statusFilter),
+      statusFilter,
       collectionId,
       userId,
       dateFilter,
@@ -142,6 +152,15 @@ function Search() {
   const { data, next, end, error, loading } = usePaginatedRequest(requestFn, {
     limit: Pagination.defaultLimit,
   });
+
+  // Only updatable documents are selectable, matching the per-item checkboxes.
+  const itemIds = React.useMemo(
+    () =>
+      data
+        ?.filter((result) => policies.abilities(result.document.id).update)
+        .map((result) => result.document.id) ?? [],
+    [data, policies]
+  );
 
   const updateLocation = (query: string) => {
     // If query came from route params, navigate to base search path
@@ -249,7 +268,7 @@ function Search() {
       textTitle={query ? `${query} – ${t("Search")}` : t("Search")}
       actions={isMobile ? sortInput : null}
     >
-      <RegisterKeyDown trigger="Escape" handler={history.goBack} />
+      <RegisterKeyDown trigger="Escape" handler={handleGoBack} />
       {loading && <LoadingIndicator />}
       <ResultsWrapper column auto>
         <form method="GET" action={searchPath()} onSubmit={preventDefault}>
@@ -344,33 +363,38 @@ function Search() {
                 </Centered>
               </Fade>
             ) : null}
-            <ResultList column>
-              <StyledArrowKeyNavigation
-                ref={resultListRef}
-                onEscape={handleEscape}
-                aria-label={t("Search Results")}
-                items={data ?? []}
-              >
-                {() =>
-                  data?.length && !error
-                    ? data.map((result) => (
-                        <DocumentListItem
-                          key={result.document.id}
-                          document={result.document}
-                          highlight={query}
-                          context={result.context}
-                          showCollection
-                        />
-                      ))
-                    : null
-                }
-              </StyledArrowKeyNavigation>
-              <Waypoint
-                key={data?.length}
-                onEnter={end || loading ? undefined : next}
-                debug={env.ENVIRONMENT === "development"}
-              />
-            </ResultList>
+            <ModelSelectionProvider
+              items={itemIds}
+              toolbar={<DocumentSelectionToolbar />}
+            >
+              <ResultList column>
+                <StyledArrowKeyNavigation
+                  ref={resultListRef}
+                  onEscape={handleEscape}
+                  aria-label={t("Search Results")}
+                  items={data ?? []}
+                >
+                  {() =>
+                    data?.length && !error
+                      ? data.map((result) => (
+                          <DocumentListItem
+                            key={result.document.id}
+                            document={result.document}
+                            highlight={query}
+                            context={result.context}
+                            showCollection
+                          />
+                        ))
+                      : null
+                  }
+                </StyledArrowKeyNavigation>
+                <Waypoint
+                  key={data?.length}
+                  onEnter={end || loading ? undefined : next}
+                  debug={env.ENVIRONMENT === "development"}
+                />
+              </ResultList>
+            </ModelSelectionProvider>
           </>
         ) : documentId ? null : (
           <RecentSearches ref={recentSearchesRef} onEscape={handleEscape} />

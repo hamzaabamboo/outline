@@ -14,6 +14,9 @@ export class EditorStyleHelper {
 
   static readonly imagePositionAnchor = "image-position-anchor";
 
+  /** Class added to body when resizing images/media */
+  static readonly resizeDragging = "resize-dragging";
+
   // Headings
 
   static readonly headingPositionAnchor = "heading-position-anchor";
@@ -21,6 +24,17 @@ export class EditorStyleHelper {
   // Comments
 
   static readonly comment = "comment-marker";
+
+  /** Container for the comment indicators shown in the gutter beside a line */
+  static readonly commentGutter = "comment-gutter";
+
+  // Multiplayer
+
+  /** Remote collaborator's cursor */
+  static readonly multiplayerCursor = "ProseMirror-yjs-cursor";
+
+  /** Remote collaborator's selection */
+  static readonly multiplayerSelection = "ProseMirror-yjs-selection";
 
   // Code
 
@@ -63,6 +77,17 @@ export class EditorStyleHelper {
 
   /** Toggle block folded state */
   static readonly toggleBlockFolded = "folded";
+
+  // Notices
+
+  /** Notice block wrapper */
+  static readonly notice = "notice-block";
+
+  /** Notice block icon */
+  static readonly noticeIcon = "icon";
+
+  /** Notice block content area */
+  static readonly noticeContent = "content";
 
   // Checkbox Lists
 

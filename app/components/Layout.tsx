@@ -21,14 +21,18 @@ type Props = {
   title?: string;
   /** Left sidebar content. */
   sidebar?: React.ReactNode;
+  /** Whether the sidebar can be collapsed, defaults to true. */
+  sidebarCanCollapse?: boolean;
 };
 
 const Layout = React.forwardRef(function Layout_(
-  { title, children, sidebar }: Props,
+  { title, children, sidebar, sidebarCanCollapse = true }: Props,
   ref: React.RefObject<HTMLDivElement>
 ) {
   const { ui } = useStores();
-  const sidebarCollapsed = !sidebar || ui.sidebarIsClosed;
+  const showSidebar = !!sidebar && !ui.sidebarHidden;
+  const sidebarCollapsed =
+    !showSidebar || (ui.sidebarIsClosed && sidebarCanCollapse);
   const sidebarRight = useRightSidebarContent();
 
   return (
@@ -42,20 +46,21 @@ const Layout = React.forwardRef(function Layout_(
       {ui.progressBarVisible && <LoadingIndicatorBar />}
 
       <Container auto>
-        {sidebar}
+        {showSidebar && sidebar}
 
         <SkipNavContent />
         <Content
           auto
           justify="center"
+          role="main"
           $isResizing={ui.sidebarIsResizing}
           $sidebarCollapsed={sidebarCollapsed}
-          $hasSidebar={!!sidebar}
+          $hasSidebar={showSidebar}
           style={
             sidebarCollapsed
               ? undefined
               : {
-                  marginLeft: `${ui.sidebarWidth}px`,
+                  marginInlineStart: `${ui.sidebarWidth}px`,
                 }
           }
         >
@@ -85,21 +90,21 @@ type ContentProps = {
 const Content = styled(Flex)<ContentProps>`
   margin: 0;
   transition: ${(props) =>
-    props.$isResizing ? "none" : `margin-left 100ms ease-out`};
+    props.$isResizing ? "none" : `margin-inline-start 100ms ease-out`};
 
   @media print {
     margin: 0 !important;
   }
 
   ${breakpoint("mobile", "tablet")`
-    margin-left: 0 !important;
+    margin-inline-start: 0 !important;
   `}
 
   ${breakpoint("tablet")`
     ${(props: ContentProps) =>
       props.$hasSidebar &&
       props.$sidebarCollapsed &&
-      `margin-left: ${props.theme.sidebarCollapsedWidth}px;`}
+      `margin-inline-start: ${props.theme.sidebarCollapsedWidth}px;`}
   `};
 `;
 

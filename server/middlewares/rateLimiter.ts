@@ -1,5 +1,7 @@
 import type { Next } from "koa";
-import defaults from "lodash/defaults";
+import { defaults } from "es-toolkit/compat";
+import { RateLimiterRes } from "rate-limiter-flexible";
+import { toError } from "@shared/utils/error";
 import env from "@server/env";
 import { RateLimitExceededError } from "@server/errors";
 import Logger from "@server/logging/Logger";
@@ -7,34 +9,47 @@ import Metrics from "@server/logging/Metrics";
 import { ApiKey, OAuthAuthentication } from "@server/models";
 import Redis from "@server/storage/redis";
 import type { AppContext } from "@server/types";
-import { getJWTPayload } from "@server/utils/jwt";
+import { getUserForJWT } from "@server/utils/jwt";
 import RateLimiter from "@server/utils/RateLimiter";
 import { parseAuthentication } from "./authentication";
 
 /**
- * Returns a unique identifier for rate limiting based on the request context.
- * Combines the user ID from the JWT payload with the client's IP address for
- * authenticated requests, otherwise falls back to the client's IP address alone.
+ * Returns the identifiers a request is rate limited against. Identifiers are
+ * consumed in order and every one must have quota remaining for the request
+ * to proceed.
+ *
+ * Session tokens are keyed on the user id, so that users behind a shared NAT
+ * do not share a bucket. API keys and OAuth access tokens are additionally
+ * keyed on the credential, as one credential may be presented from many
+ * addresses – they remain keyed on the address too because the credential is
+ * only pattern matched at this point, not yet verified.
  *
  * @param ctx The application context.
- * @returns A string identifier for rate limiting.
+ * @returns The identifiers to consume for this request.
  */
-function getRateLimiterIdentifier(ctx: AppContext): string {
+async function getRateLimiterIdentifiers(ctx: AppContext): Promise<string[]> {
   try {
     const { token } = parseAuthentication(ctx);
-    if (token && !ApiKey.match(token) && !OAuthAuthentication.match(token)) {
-      // Note: JWT is not validated here which would require a DB request,
-      // just decoded to extract the user ID for separating rate limits by user
-      // on shared networks.
-      const payload = getJWTPayload(token);
-      if (payload.id) {
-        return `user:${payload.id}:${ctx.ip}`;
-      }
+    if (!token) {
+      return [ctx.ip];
     }
+
+    if (ApiKey.match(token) || OAuthAuthentication.match(token)) {
+      return [ctx.ip, RateLimiter.identifierForCredential(token)];
+    }
+
+    let userId = await RateLimiter.getCachedUserIdForToken(token);
+    if (!userId) {
+      const { user } = await getUserForJWT(token);
+      userId = user.id;
+      void RateLimiter.cacheUserForToken(token, userId);
+    }
+    return [userId];
   } catch {
     // Fall through to IP-based rate limiting
   }
-  return ctx.ip;
+
+  return [ctx.ip];
 }
 
 /**
@@ -51,33 +66,38 @@ export function defaultRateLimiter() {
     }
 
     const fullPath = `${ctx.mountPath ?? ""}${ctx.path}`;
-    const identifier = getRateLimiterIdentifier(ctx);
-
-    const key = RateLimiter.hasRateLimiter(fullPath)
-      ? `${fullPath}:${identifier}`
-      : identifier;
+    const identifiers = await getRateLimiterIdentifiers(ctx);
+    const isPathScoped = RateLimiter.hasRateLimiter(fullPath);
     const limiter = RateLimiter.getRateLimiter(fullPath);
 
     try {
-      await limiter.consume(key);
-    } catch (rateLimiterRes) {
-      if (rateLimiterRes.msBeforeNext) {
-        ctx.set("Retry-After", `${rateLimiterRes.msBeforeNext / 1000}`);
-        ctx.set("RateLimit-Limit", `${limiter.points}`);
-        ctx.set("RateLimit-Remaining", `${rateLimiterRes.remainingPoints}`);
-        ctx.set(
-          "RateLimit-Reset",
-          `${new Date(Date.now() + rateLimiterRes.msBeforeNext)}`
+      for (const identifier of identifiers) {
+        await limiter.consume(
+          isPathScoped ? `${fullPath}:${identifier}` : identifier
         );
-
-        Metrics.increment("rate_limit.exceeded", {
-          path: fullPath,
-        });
-
-        throw RateLimitExceededError();
-      } else {
-        Logger.error("Rate limiter error", rateLimiterRes);
       }
+    } catch (rateLimiterRes) {
+      if (
+        rateLimiterRes instanceof Error ||
+        !(rateLimiterRes instanceof RateLimiterRes)
+      ) {
+        Logger.error("Rate limiter error", toError(rateLimiterRes));
+        return next();
+      }
+
+      ctx.set("Retry-After", `${rateLimiterRes.msBeforeNext / 1000}`);
+      ctx.set("RateLimit-Limit", `${limiter.points}`);
+      ctx.set("RateLimit-Remaining", `${rateLimiterRes.remainingPoints}`);
+      ctx.set(
+        "RateLimit-Reset",
+        new Date(Date.now() + rateLimiterRes.msBeforeNext).toString()
+      );
+
+      Metrics.increment("rate_limit.exceeded", {
+        path: fullPath,
+      });
+
+      throw RateLimitExceededError();
     }
 
     return next();
@@ -110,12 +130,17 @@ export function rateLimiter(config: RateLimiterConfig) {
     const fullPath = `${ctx.mountPath ?? ""}${ctx.path}`;
 
     if (!RateLimiter.hasRateLimiter(fullPath)) {
+      const points = Math.max(
+        1,
+        Math.round(config.requests * env.RATE_LIMITER_MULTIPLIER)
+      );
+
       RateLimiter.setRateLimiter(
         fullPath,
         defaults(
           {
             ...config,
-            points: config.requests,
+            points,
           },
           {
             duration: 60,

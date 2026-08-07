@@ -11,6 +11,7 @@ import {
   IntegrationService,
   UnfurlResourceType,
 } from "@shared/types";
+import { toError, errToString } from "@shared/utils/error";
 import Logger from "@server/logging/Logger";
 import type { User } from "@server/models";
 import { Integration, IntegrationAuthentication } from "@server/models";
@@ -267,8 +268,10 @@ export class GitLab {
 
       return { error: "Resource not found" };
     } catch (err) {
-      Logger.warn("Failed to fetch resource from GitLab", err);
-      return { error: err.message || "Unknown error" };
+      Logger.warn("Failed to fetch resource from GitLab", toError(err));
+      return {
+        error: errToString(err) || "Unknown error",
+      };
     }
   };
 
@@ -362,7 +365,7 @@ export class GitLab {
       url: issue.web_url,
       id: `#${issue.iid}`,
       title: issue.title,
-      description: issue.description ?? null,
+      description: GitLabUtils.sanitizeGitLabMarkdown(issue.description),
       author: {
         name: issue.author?.username ?? "",
         avatarUrl: issue.author?.avatar_url ?? "",
@@ -386,7 +389,7 @@ export class GitLab {
       url: mr.web_url,
       id: `!${mr.iid}`,
       title: mr.title,
-      description: mr.description ?? "",
+      description: GitLabUtils.sanitizeGitLabMarkdown(mr.description) ?? "",
       author: {
         name: mr.author.username,
         avatarUrl: mr.author.avatar_url,
@@ -419,7 +422,7 @@ export class GitLab {
       name: project.name,
       color: GitLabUtils.getColorForProject(project.id),
       avatarUrl: project.avatar_url || undefined,
-      description: project.description ?? null,
+      description: GitLabUtils.sanitizeGitLabMarkdown(project.description),
       lead: owner
         ? {
             name: owner.name,

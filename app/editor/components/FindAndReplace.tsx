@@ -1,3 +1,4 @@
+import { debounce } from "es-toolkit/compat";
 import {
   CaretDownIcon,
   CaretUpIcon,
@@ -21,6 +22,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "~/components/primitives/Popover";
+import { useClearSearchHighlight } from "~/hooks/useClearSearchHighlight";
 import useKeyDown from "~/hooks/useKeyDown";
 import Desktop from "~/utils/Desktop";
 import { useEditor } from "./EditorContext";
@@ -105,6 +107,7 @@ export default function FindAndReplace({
   const inputReplaceRef = React.useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const theme = useTheme();
+  const clearSearchHighlight = useClearSearchHighlight();
   const [showReplace, setShowReplace] = React.useState(false);
   const [caseSensitive, setCaseSensitive] = React.useState(false);
   const [regexEnabled, setRegex] = React.useState(false);
@@ -211,9 +214,31 @@ export default function FindAndReplace({
     });
   }, [caseSensitive, editor.commands, searchTerm]);
 
+  // Searching the document on every keystroke is expensive in long documents –
+  // it traverses the entire doc and rebuilds highlights – so debounce.
+  const debouncedFind = React.useMemo(
+    () =>
+      debounce(
+        (attrs: {
+          text: string;
+          caseSensitive: boolean;
+          regexEnabled: boolean;
+        }) => {
+          editor.commands.find(attrs);
+        },
+        100
+      ),
+    [editor.commands]
+  );
+
+  React.useEffect(() => () => debouncedFind.cancel(), [debouncedFind]);
+
   const handleKeyDown = React.useCallback(
     (ev: React.KeyboardEvent<HTMLInputElement>) => {
       function nextPrevious() {
+        // Ensure any pending debounced search has run so navigation acts on the
+        // results for the text currently in the input.
+        debouncedFind.flush();
         if (ev.shiftKey) {
           editor.commands.prevSearchMatch();
         } else {
@@ -243,7 +268,7 @@ export default function FindAndReplace({
         }
       }
     },
-    [editor.commands, selectInputText]
+    [debouncedFind, editor.commands, selectInputText]
   );
 
   const handleReplace = React.useCallback(
@@ -274,13 +299,13 @@ export default function FindAndReplace({
       ev.stopPropagation();
       setSearchTerm(ev.currentTarget.value);
 
-      editor.commands.find({
+      debouncedFind({
         text: ev.currentTarget.value,
         caseSensitive,
         regexEnabled,
       });
     },
-    [caseSensitive, editor.commands, regexEnabled]
+    [caseSensitive, debouncedFind, regexEnabled]
   );
 
   const handleReplaceKeyDown = React.useCallback(
@@ -313,6 +338,8 @@ export default function FindAndReplace({
   React.useEffect(() => {
     if (localOpen) {
       onOpen();
+      // The find controls take over highlighting from here.
+      clearSearchHighlight();
       const startSearchText = selectionRef.current || searchTerm;
 
       editor.commands.find({
@@ -331,6 +358,9 @@ export default function FindAndReplace({
     } else {
       onClose();
       setShowReplace(false);
+      // Cancel any pending debounced find so it can't reactivate highlights
+      // after the search has been cleared.
+      debouncedFind.cancel();
       editor.commands.clearSearch();
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps
@@ -346,7 +376,10 @@ export default function FindAndReplace({
       >
         <ButtonLarge
           disabled={disabled}
-          onClick={() => editor.commands.prevSearchMatch()}
+          onClick={() => {
+            debouncedFind.flush();
+            editor.commands.prevSearchMatch();
+          }}
           aria-label={t("Previous match")}
         >
           <CaretUpIcon />
@@ -355,7 +388,10 @@ export default function FindAndReplace({
       <Tooltip content={t("Next match")} shortcut="Enter" placement="bottom">
         <ButtonLarge
           disabled={disabled}
-          onClick={() => editor.commands.nextSearchMatch()}
+          onClick={() => {
+            debouncedFind.flush();
+            editor.commands.nextSearchMatch();
+          }}
           aria-label={t("Next match")}
         >
           <CaretDownIcon />
@@ -367,7 +403,11 @@ export default function FindAndReplace({
   return (
     <Popover open={localOpen} onOpenChange={setLocalOpen}>
       <PopoverTrigger>
-        <span style={style} />
+        <button
+          type="button"
+          aria-label={t("Find and replace")}
+          style={{ ...style, background: "none", border: 0, padding: 0 }}
+        />
       </PopoverTrigger>
       <PopoverContent
         aria-label={t("Find and replace")}

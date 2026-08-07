@@ -13,6 +13,7 @@ import Fade from "~/components/Fade";
 import Flex from "~/components/Flex";
 import Scrollable from "~/components/Scrollable";
 import { ArrowDownIcon } from "~/components/Icons/ArrowIcon";
+import { useSplitView } from "~/components/SplitView/context";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import { useFocusedComment } from "~/hooks/useFocusedComment";
 import useKeyDown from "~/hooks/useKeyDown";
@@ -30,6 +31,7 @@ import useMobile from "~/hooks/useMobile";
 
 function Comments() {
   const { ui, comments, documents } = useStores();
+  const { pane } = useSplitView();
   const user = useCurrentUser();
   const { editor, isEditorInitialized, setFocusedCommentId } =
     useDocumentContext();
@@ -49,7 +51,7 @@ function Comments() {
   const isAtBottom = useRef(true);
   const [showJumpToRecentBtn, setShowJumpToRecentBtn] = useState(false);
 
-  useKeyDown("Escape", () => document && ui.set({ rightSidebar: null }));
+  useKeyDown("Escape", () => document && ui.setRightSidebar(null, pane));
 
   // Account for the resolved status of the comment changing
   useEffect(() => {
@@ -180,7 +182,6 @@ function Comments() {
               documentId={document.id}
               placeholder={`${t("Add a comment")}…`}
               autoFocus={false}
-              dir={document.dir}
               animatePresence
               standalone
             />
@@ -205,7 +206,7 @@ function Comments() {
         </Flex>
       }
       onClose={() => {
-        ui.set({ rightSidebar: null });
+        ui.setRightSidebar(null, pane);
         setFocusedCommentId(null);
       }}
       scrollable={false}
@@ -245,10 +246,10 @@ const JumpToRecent = styled(ButtonSmall)`
   }
 `;
 
-const NewCommentForm = styled(CommentForm)<{ dir?: "ltr" | "rtl" }>`
+const NewCommentForm = styled(CommentForm)`
   padding: 12px;
-  padding-right: ${(props) => (props.dir !== "rtl" ? "18px" : "12px")};
-  padding-left: ${(props) => (props.dir === "rtl" ? "18px" : "12px")};
+  padding-inline-end: 18px;
+  padding-inline-start: 12px;
 `;
 
 export default observer(Comments);

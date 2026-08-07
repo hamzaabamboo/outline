@@ -42,4 +42,43 @@ export class RedisPrefixHelper {
   public static getUserCollectionIdsKey(userId: string) {
     return `uc:${userId}`;
   }
+
+  /**
+   * Gets key for caching a team's enabled webhook subscriptions.
+   *
+   * @param teamId The team ID to generate a key for.
+   * @returns the cache key string.
+   */
+  public static getWebhookSubscriptionsKey(teamId: string) {
+    return `whs:${teamId}`;
+  }
+
+  /**
+   * Gets key for caching the count of a relationship managed by the
+   * `CounterCache` decorator.
+   *
+   * @param modelName The owning model name (e.g. "Group").
+   * @param relationName The relationship reference name (e.g. "members").
+   * @param id The owning record id.
+   * @returns the cache key string.
+   */
+  public static getCounterCacheKey(
+    modelName: string,
+    relationName: string,
+    id: string
+  ) {
+    return `count:${modelName}:${relationName}:${id}`;
+  }
+
+  /**
+   * Gets key for storing an auth provider's token used as a logout hint during
+   * provider-initiated logout, referenced by a short session identifier.
+   *
+   * @param provider The auth provider id (e.g. "oidc").
+   * @param sessionId The logout session identifier to generate a key for.
+   * @returns the cache key string.
+   */
+  public static getLogoutTokenKey(provider: string, sessionId: string) {
+    return `auth:logout:${provider}:${sessionId}`;
+  }
 }

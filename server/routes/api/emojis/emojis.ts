@@ -14,6 +14,7 @@ import { RateLimiterStrategy } from "@server/utils/RateLimiter";
 import pagination from "../middlewares/pagination";
 import * as T from "./schema";
 import { getTeamFromContext } from "@server/utils/passport";
+import { QueryHelper } from "@server/storage/QueryHelper";
 import { loadPublicShare } from "@server/commands/shareLoader";
 import { AuthorizationError } from "@server/errors";
 
@@ -85,7 +86,7 @@ router.get(
 
     if (shareId) {
       const teamFromCtx = await getTeamFromContext(ctx, {
-        includeStateCookie: false,
+        includeOAuthState: false,
       });
       const { share } = await loadPublicShare({
         id: shareId,
@@ -126,9 +127,7 @@ router.post(
     if (query) {
       where = {
         ...where,
-        name: {
-          [Op.iLike]: `%${query}%`,
-        },
+        name: { [Op.iLike]: QueryHelper.likeContains(query) },
       };
     }
 
@@ -166,7 +165,7 @@ router.post(
 
 router.post(
   "emojis.create",
-  rateLimiter(RateLimiterStrategy.TenPerMinute),
+  rateLimiter(RateLimiterStrategy.TwentyFivePerMinute),
   auth(),
   validate(T.EmojisCreateSchema),
   transaction(),
@@ -190,6 +189,56 @@ router.post(
     });
     emoji.createdBy = user;
     emoji.attachment = attachment;
+
+    ctx.body = {
+      data: presentEmoji(emoji),
+      policies: presentPolicies(user, [emoji]),
+    };
+  }
+);
+
+router.post(
+  "emojis.update",
+  auth(),
+  validate(T.EmojisUpdateSchema),
+  transaction(),
+  async (ctx: APIContext<T.EmojisUpdateReq>) => {
+    const { id, attachmentId } = ctx.input.body;
+    const { user } = ctx.state.auth;
+    const { transaction } = ctx.state;
+
+    const emoji = await Emoji.findByPk(id, {
+      transaction,
+      rejectOnEmpty: true,
+      lock: transaction.LOCK.UPDATE,
+    });
+    authorize(user, "update", emoji);
+
+    const attachment = await Attachment.findByPk(attachmentId, {
+      transaction,
+      rejectOnEmpty: true,
+    });
+    authorize(user, "read", attachment);
+
+    // Capture old attachment before reassigning so we can clean it up.
+    const oldAttachmentId = emoji.attachmentId;
+
+    emoji.attachmentId = attachmentId;
+    emoji.createdById = user.id;
+    await emoji.save({ transaction });
+
+    if (oldAttachmentId !== attachmentId) {
+      const oldAttachment = await Attachment.findByPk(oldAttachmentId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (oldAttachment) {
+        await oldAttachment.destroy({ transaction });
+      }
+    }
+
+    emoji.attachment = attachment;
+    emoji.createdBy = user;
 
     ctx.body = {
       data: presentEmoji(emoji),

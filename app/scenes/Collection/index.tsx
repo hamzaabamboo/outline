@@ -11,9 +11,11 @@ import {
   Redirect,
 } from "react-router-dom";
 import styled from "styled-components";
+import { toError } from "@shared/utils/error";
 import { s } from "@shared/styles";
 import { StatusFilter } from "@shared/types";
 import type Collection from "~/models/Collection";
+import type DocumentsStore from "~/stores/DocumentsStore";
 import CenteredContent from "~/components/CenteredContent";
 import { CollectionBreadcrumb } from "~/components/CollectionBreadcrumb";
 import Heading from "~/components/Heading";
@@ -49,7 +51,7 @@ import Overview from "./components/Overview";
 import { Header } from "./components/Header";
 import usePersistedState from "~/hooks/usePersistedState";
 import useCurrentUser from "~/hooks/useCurrentUser";
-import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
+import { ProsemirrorDataHelper } from "@shared/utils/ProsemirrorDataHelper";
 
 const CollectionScene = observer(function CollectionScene_() {
   const params = useParams<{ collectionSlug?: string }>();
@@ -71,7 +73,7 @@ const CollectionScene = observer(function CollectionScene_() {
   const collection = collections.get(id);
   const can = usePolicy(collection);
   const hasDescription = collection?.data
-    ? !ProsemirrorHelper.isEmptyData(collection.data)
+    ? !ProsemirrorDataHelper.isEmpty(collection.data)
     : false;
 
   const { pins, count } = usePinnedDocuments(urlId, collection?.id);
@@ -108,11 +110,14 @@ const CollectionScene = observer(function CollectionScene_() {
         setError(undefined);
         await collections.fetch(id);
       } catch (err) {
-        setError(err);
+        setError(toError(err));
       }
     }
 
     void fetchData();
+    // Fetched once on mount, the slug in `id` also changes when the collection
+    // is renamed which must not trigger a refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -178,14 +183,10 @@ const CollectionScene = observer(function CollectionScene_() {
           <Notices collection={collection} />
           <Header
             collection={collection}
-            isEditing={isEditRoute && !!user?.separateEditMode}
+            isEditing={isEditRoute || !user?.separateEditMode}
           />
 
-          <PinnedDocuments
-            pins={pins}
-            canUpdate={can.update}
-            placeholderCount={count}
-          />
+          <PinnedDocuments pins={pins} placeholderCount={count} />
 
           <Content>
             <Navigation
@@ -362,9 +363,15 @@ const Content = styled.div`
 `;
 
 const RecentDocuments = observer(
-  ({ collection, documents }: { collection: Collection; documents: any }) => {
+  ({
+    collection,
+    documents,
+  }: {
+    collection: Collection;
+    documents: DocumentsStore;
+  }) => {
     useEffect(() => {
-      collection.fetchDocuments();
+      void collection.fetchDocuments();
     }, [collection]);
 
     return (

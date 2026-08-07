@@ -1,8 +1,8 @@
 import { observer } from "mobx-react";
 import * as React from "react";
+import { mergeRefs } from "react-merge-refs";
 import styled, { css } from "styled-components";
 import { hideScrollbars } from "@shared/styles";
-import useWindowSize from "~/hooks/useWindowSize";
 
 type Props = React.HTMLAttributes<HTMLDivElement> & {
   /** Whether to show shadows at top and bottom when scrolled */
@@ -13,7 +13,7 @@ type Props = React.HTMLAttributes<HTMLDivElement> & {
   bottomShadow?: boolean;
   /** Whether to hide the scrollbars */
   hiddenScrollbars?: boolean;
-  /** Color to fade to (enables fade effect) */
+  /** Color to fade to (enables fade effect), applied to both edges unless topShadow or bottomShadow narrows it to one */
   fadeTo?: string;
   /** Whether to use flexbox layout */
   flex?: boolean;
@@ -40,61 +40,66 @@ function Scrollable(
     children,
     ...rest
   }: Props,
-  ref: React.RefObject<HTMLDivElement>
+  ref: React.Ref<HTMLDivElement>
 ) {
-  const fallbackRef = React.useRef<HTMLDivElement>();
+  const localRef = React.useRef<HTMLDivElement>(null);
   const [topShadowVisible, setTopShadow] = React.useState(false);
   const [bottomShadowVisible, setBottomShadow] = React.useState(false);
-  const { height } = useWindowSize();
+
+  // When an edge is named alongside fadeTo the fade is limited to that edge,
+  // otherwise both edges fade.
+  const singleEdge = topShadow !== undefined || bottomShadow !== undefined;
+  const fadeTop = !!fadeTo && (!singleEdge || !!topShadow);
+  const fadeBottom = !!fadeTo && (!singleEdge || !!bottomShadow);
+  const trackTop = !!(shadow || topShadow || fadeTop);
+  const trackBottom = !!(shadow || bottomShadow || fadeBottom);
+
   const updateShadows = React.useCallback(() => {
-    const c = (ref || fallbackRef).current;
+    const c = localRef.current;
     if (!c) {
       return;
     }
     const scrollTop = c.scrollTop;
-    const tsv = !!((shadow || topShadow || fadeTo) && scrollTop > 0);
-
-    if (tsv !== topShadowVisible) {
-      setTopShadow(tsv);
-    }
+    setTopShadow(trackTop && scrollTop > 0);
 
     const wrapperHeight = c.scrollHeight - c.clientHeight;
-    const bsv = !!(
-      (shadow || bottomShadow || fadeTo) &&
-      wrapperHeight - scrollTop !== 0
-    );
-
-    if (bsv !== bottomShadowVisible) {
-      setBottomShadow(bsv);
-    }
-  }, [
-    shadow,
-    topShadow,
-    bottomShadow,
-    fadeTo,
-    ref,
-    topShadowVisible,
-    bottomShadowVisible,
-  ]);
+    setBottomShadow(trackBottom && wrapperHeight - scrollTop > 1);
+  }, [trackTop, trackBottom]);
 
   React.useEffect(() => {
+    const c = localRef.current;
+    if (!c) {
+      return;
+    }
+
     updateShadows();
-  }, [height, updateShadows]);
+
+    const observer = new ResizeObserver(updateShadows);
+    observer.observe(c);
+
+    for (const child of Array.from(c.children)) {
+      observer.observe(child);
+    }
+
+    return () => observer.disconnect();
+  }, [updateShadows]);
 
   return (
     <Wrapper
-      ref={ref || fallbackRef}
+      ref={mergeRefs([localRef, ref])}
       onScroll={updateShadows}
       $flex={flex}
       $hiddenScrollbars={hiddenScrollbars}
-      $topShadowVisible={topShadowVisible && !fadeTo}
-      $bottomShadowVisible={bottomShadowVisible && !fadeTo}
+      $topShadowVisible={topShadowVisible && !fadeTop}
+      $bottomShadowVisible={bottomShadowVisible && !fadeBottom}
       $overflow={overflow}
       {...rest}
     >
-      {fadeTo && <Fade to={fadeTo} visible={topShadowVisible} top />}
+      {fadeTo && fadeTop && <Fade to={fadeTo} visible={topShadowVisible} top />}
       {children}
-      {fadeTo && <Fade to={fadeTo} visible={bottomShadowVisible} bottom />}
+      {fadeTo && fadeBottom && (
+        <Fade to={fadeTo} visible={bottomShadowVisible} bottom />
+      )}
     </Wrapper>
   );
 }

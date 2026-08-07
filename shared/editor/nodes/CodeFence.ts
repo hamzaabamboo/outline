@@ -1,5 +1,6 @@
 import copy from "copy-to-clipboard";
-import type { Token } from "markdown-it";
+import { t } from "i18next";
+import type Token from "markdown-it/lib/token.mjs";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
 import type {
   NodeSpec,
@@ -15,11 +16,9 @@ import {
   TextSelection,
 } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
-import { toast } from "sonner";
 import type { Primitive } from "utility-types";
-import type { Dictionary } from "~/hooks/useDictionary";
 import type { UserPreferences } from "../../types";
-import { isMac } from "../../utils/browser";
+import { isBrowser, isMac } from "../../utils/browser";
 import backspaceToParagraph from "../commands/backspaceToParagraph";
 import {
   newlineInCode,
@@ -32,7 +31,7 @@ import {
 } from "../commands/codeFence";
 import { selectAll } from "../commands/selectAll";
 import toggleBlockType from "../commands/toggleBlockType";
-import { CodeHighlighting } from "../extensions/CodeHighlighting";
+import { CodeHighlighting } from "../plugins/CodeHighlightingPlugin";
 import Mermaid, {
   pluginKey as mermaidPluginKey,
   type MermaidState,
@@ -42,8 +41,10 @@ import {
   setRecentlyUsedCodeLanguage,
 } from "../lib/code";
 import { isCode, isMermaid } from "../lib/isCode";
+import { isRemoteTransaction } from "../lib/multiplayer";
 import { findBlockNodes } from "../queries/findChildren";
 import type { MarkdownSerializerState } from "../lib/markdown/serializer";
+import { escapeRawTableCell } from "../lib/markdown/tableCell";
 import { findNextNewline, findPreviousNewline } from "../queries/findNewlines";
 import {
   findParentNode,
@@ -55,10 +56,15 @@ import { isInCode } from "../queries/isInCode";
 import Node from "./Node";
 
 const DEFAULT_LANGUAGE = "javascript";
-const COLLAPSE_LINE_THRESHOLD = 12;
+
+/** Fraction of the viewport height above which a code block is collapsible. */
+const COLLAPSE_HEIGHT_RATIO = 0.5;
+
+/** Approximate rendered line height of a code block, in pixels. */
+const CODE_LINE_HEIGHT = 20;
 
 interface CollapseState {
-  /** Positions of code blocks with more than COLLAPSE_LINE_THRESHOLD lines. */
+  /** Positions of code blocks taller than COLLAPSE_HEIGHT_RATIO of the viewport. */
   tallBlocks: Set<number>;
   /** Positions of code blocks currently collapsed by the user or auto-collapse. */
   collapsedBlocks: Set<number>;
@@ -67,17 +73,23 @@ interface CollapseState {
 }
 
 /**
- * Find all code block positions in the document that exceed the line threshold.
+ * Find all code block positions whose estimated height exceeds
+ * COLLAPSE_HEIGHT_RATIO of the viewport height.
  *
  * @param doc - the document to scan.
  * @returns set of positions of tall code blocks.
  */
 function findTallBlocks(doc: ProsemirrorNode): Set<number> {
   const tall = new Set<number>();
+  if (!isBrowser) {
+    return tall;
+  }
+  const maxLines =
+    (window.innerHeight * COLLAPSE_HEIGHT_RATIO) / CODE_LINE_HEIGHT;
   for (const block of findBlockNodes(doc, true)) {
     if (isCode(block.node)) {
       const lines = (block.node.textContent.match(/\n/g)?.length ?? 0) + 1;
-      if (lines > COLLAPSE_LINE_THRESHOLD) {
+      if (lines > maxLines) {
         tall.add(block.pos);
       }
     }
@@ -107,9 +119,8 @@ function buildCollapseState(
 
     if (isCollapsed) {
       const totalLines = (node.textContent.match(/\n/g)?.length ?? 0) + 1;
-      const cappedLines = Math.min(totalLines, COLLAPSE_LINE_THRESHOLD);
       const gutterWidth = String(totalLines).length;
-      const lineNumberText = Array.from({ length: cappedLines }, (_, i) =>
+      const lineNumberText = Array.from({ length: totalLines }, (_, i) =>
         String(i + 1).padStart(gutterWidth, " ")
       ).join("\n");
 
@@ -146,17 +157,19 @@ function buildCollapseState(
   };
 }
 
-export default class CodeFence extends Node {
+/**
+ * Options for the CodeFence node.
+ */
+type CodeFenceOptions = {
+  /** Display preferences for the logged in user, if any. */
+  userPreferences?: UserPreferences | null;
+};
+
+export default class CodeFence extends Node<CodeFenceOptions> {
   /** Plugin key for the collapse state, shared with the command. */
   private static readonly collapseKey = new PluginKey<CollapseState>(
     "collapse-code-block"
   );
-  constructor(options: {
-    dictionary: Dictionary;
-    userPreferences?: UserPreferences | null;
-  }) {
-    super(options);
-  }
 
   get showLineNumbers(): boolean {
     return this.options.userPreferences?.codeBlockLineNumbers ?? true;
@@ -243,6 +256,29 @@ export default class CodeFence extends Node {
           ...attrs,
         });
       },
+      expandCodeBlockAt:
+        (pos: number): Command =>
+        (state, dispatch) => {
+          const $pos = state.doc.resolve(pos);
+          const codeBlock = findParentNodeClosestToPos($pos, isCode);
+          if (!codeBlock) {
+            return false;
+          }
+
+          const collapseState = CodeFence.collapseKey.getState(state);
+          if (!collapseState?.collapsedBlocks.has(codeBlock.pos)) {
+            return false;
+          }
+
+          if (dispatch) {
+            dispatch(
+              state.tr
+                .setMeta(CodeFence.collapseKey, { expand: codeBlock.pos })
+                .setMeta("addToHistory", false)
+            );
+          }
+          return true;
+        },
       toggleCodeBlockCollapse: (): Command => (state, dispatch) => {
         const codeBlock = findParentNode(isCode)(state.selection);
         if (!codeBlock) {
@@ -314,7 +350,7 @@ export default class CodeFence extends Node {
 
         if (codeBlock) {
           copy(codeBlock.node.textContent);
-          toast.message(this.options.dictionary.codeCopied);
+          this.editor.props.onNotice?.(t("Copied to clipboard"));
           return true;
         }
 
@@ -335,7 +371,7 @@ export default class CodeFence extends Node {
           dispatch?.(tr);
 
           copy(tr.doc.textBetween(state.selection.from, state.selection.to));
-          toast.message(this.options.dictionary.codeCopied);
+          this.editor.props.onNotice?.(t("Copied to clipboard"));
           return true;
         }
 
@@ -377,19 +413,11 @@ export default class CodeFence extends Node {
   /** Plugins for collapsible code block behavior. */
   private collapsePlugins(): Plugin[] {
     const collapseKey = CodeFence.collapseKey;
-    const options = this.options;
     const build = (
       doc: ProsemirrorNode,
       tall: Set<number>,
       collapsed: Set<number>
-    ) =>
-      buildCollapseState(
-        doc,
-        tall,
-        collapsed,
-        options.dictionary?.expandCode ?? "",
-        options.dictionary?.collapseCode ?? ""
-      );
+    ) => buildCollapseState(doc, tall, collapsed, t("Expand"), t("Collapse"));
 
     return [
       // Main collapse plugin: manages state and decorations
@@ -424,17 +452,20 @@ export default class CodeFence extends Node {
               return prev;
             }
 
-            // Recompute tall blocks on doc changes, preserving
-            // user collapse/expand choices where possible.
+            // Recompute tall blocks on doc changes. Newly tall blocks are only
+            // auto-collapsed when content arrives via load/remote sync — never
+            // while the user is typing, which would collapse the block under
+            // the cursor.
             if (tr.docChanged) {
               const tallBlocks = findTallBlocks(newState.doc);
               const collapsedBlocks = new Set<number>();
+              const isRemote = isRemoteTransaction(tr);
 
               const inverse = tr.mapping.invert();
               for (const pos of tallBlocks) {
                 const oldPos = inverse.map(pos);
-                if (!prev.tallBlocks.has(oldPos)) {
-                  // Newly tall blocks start collapsed
+                if (isRemote && !prev.tallBlocks.has(oldPos)) {
+                  // Newly tall blocks start collapsed on load
                   collapsedBlocks.add(pos);
                 } else if (prev.collapsedBlocks.has(oldPos)) {
                   // Preserve previous collapsed state
@@ -457,7 +488,7 @@ export default class CodeFence extends Node {
       // Click handler for toggle button + auto-expand on focus
       new Plugin({
         key: new PluginKey("collapse-toggle"),
-        appendTransaction: (transactions, _oldState, newState) => {
+        appendTransaction: (transactions, oldState, newState) => {
           const hasCollapseMeta = transactions.some((tr) =>
             tr.getMeta(collapseKey)
           );
@@ -472,6 +503,14 @@ export default class CodeFence extends Node {
             !codeBlock ||
             !collapseState?.collapsedBlocks.has(codeBlock.pos)
           ) {
+            return null;
+          }
+
+          // Only auto-expand when the selection moved INTO the block. If the
+          // selection was already inside this block (e.g. after the user just
+          // clicked Collapse while the cursor was inside), don't re-expand.
+          const oldCodeBlock = findParentNode(isCode)(oldState.selection);
+          if (oldCodeBlock?.pos === codeBlock.pos) {
             return null;
           }
 
@@ -663,8 +702,14 @@ export default class CodeFence extends Node {
   }
 
   toMarkdown(state: MarkdownSerializerState, node: ProsemirrorNode) {
+    // Fence content bypasses esc(), so when inside a table cell escape it here
+    // so it cannot break out of the column.
+    const content = state.inTable
+      ? escapeRawTableCell(node.textContent)
+      : node.textContent;
+
     state.write("```" + (node.attrs.language || "") + "\n");
-    state.text(node.textContent, false);
+    state.text(content, false);
     state.ensureNewLine();
     state.write("```");
     state.closeBlock(node);

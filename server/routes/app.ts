@@ -2,20 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import util from "node:util";
 import type { Context, Next } from "koa";
-import escape from "lodash/escape";
+import { escape } from "es-toolkit/compat";
 import { Sequelize } from "sequelize";
 import isUUID from "validator/lib/isUUID";
 import {
-  IntegrationType,
   TeamPreference,
+  type IntegrationType,
   type NavigationNode,
 } from "@shared/types";
 import { unicodeCLDRtoISO639 } from "@shared/utils/date";
 import { attachmentRedirectRegex } from "@shared/utils/ProsemirrorHelper";
 import env from "@server/env";
+import { allowScriptSrc } from "@server/middlewares/csp";
 import { Attachment, Integration } from "@server/models";
 import FileStorage from "@server/storage/files";
 import { DocumentHelper } from "@server/models/helpers/DocumentHelper";
+import IntegrationHelper from "@server/models/helpers/IntegrationHelper";
 import presentEnv from "@server/presenters/env";
 import { getTeamFromContext } from "@server/utils/passport";
 import prefetchTags from "@server/utils/prefetchTags";
@@ -30,7 +32,7 @@ const OG_IMAGE_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 async function getSignedOgImageUrl(
   imageUrl: string | undefined,
-  teamId: string | undefined
+  teamId: string | undefined,
 ): Promise<string | undefined> {
   if (!imageUrl || !teamId) {
     return imageUrl;
@@ -65,7 +67,7 @@ let indexHtmlCache: Buffer | undefined;
  */
 function formatChildDocumentsAsMarkdown(
   children: NavigationNode[],
-  baseUrl: string
+  baseUrl: string,
 ): string {
   if (!children || children.length === 0) {
     return "";
@@ -92,12 +94,12 @@ const readIndexFile = async (): Promise<Buffer> => {
 
   if (env.isDevelopment) {
     return await readFile(
-      path.join(__dirname, "../../../server/static/index.html")
+      path.join(__dirname, "../../../server/static/index.html"),
     );
   }
 
   return (indexHtmlCache = await readFile(
-    path.join(__dirname, "../../app/index.html")
+    path.join(__dirname, "../../app/index.html"),
   ));
 };
 
@@ -115,7 +117,7 @@ export const renderApp = async (
     isShare?: boolean;
     analytics?: Integration<IntegrationType.Analytics>[];
     allowIndexing?: boolean;
-  } = {}
+  } = {},
 ) => {
   const {
     title = env.APP_NAME,
@@ -130,18 +132,10 @@ export const renderApp = async (
     return next();
   }
 
-  if (!env.isCloudHosted) {
-    options.analytics?.forEach((integration) => {
-      if (integration.settings?.instanceUrl) {
-        const parsed = new URL(integration.settings?.instanceUrl);
-        const csp = ctx.response.get("Content-Security-Policy");
-        ctx.set(
-          "Content-Security-Policy",
-          csp.replace("script-src", `script-src ${parsed.host}`)
-        );
-      }
-    });
-  }
+  allowScriptSrc(
+    ctx,
+    IntegrationHelper.getAnalyticsScriptSrc(options.analytics),
+  );
 
   const { shareId } = ctx.params;
   const page = await readIndexFile();
@@ -149,7 +143,7 @@ export const renderApp = async (
     <script nonce="${ctx.state.cspNonce}">
       window.env = ${JSON.stringify(presentEnv(env, options)).replace(
         /</g,
-        "\\u003c"
+        "\\u003c",
       )};
     </script>
   `;
@@ -254,7 +248,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
 
   let sharedTree;
   try {
-    team = await getTeamFromContext(ctx, { includeStateCookie: false });
+    team = await getTeamFromContext(ctx, { includeOAuthState: false });
     const result = await loadPublicShare({
       id: shareId,
       collectionId: collectionSlug,
@@ -274,12 +268,9 @@ export const renderShare = async (ctx: Context, next: Next) => {
       return;
     }
 
-    analytics = await Integration.findAll({
-      where: {
-        teamId: share.teamId,
-        type: IntegrationType.Analytics,
-      },
-    });
+    analytics = await Integration.findAnalyticsIntegrationsForTeam(
+      share.teamId,
+    );
 
     if (share && !ctx.userAgent.isBot) {
       await share.update(
@@ -289,7 +280,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
         },
         {
           hooks: false,
-        }
+        },
       );
     }
   } catch (_err) {
@@ -316,13 +307,13 @@ export const renderShare = async (ctx: Context, next: Next) => {
     // Append child documents list if the share includes them
     if (share?.includeChildDocuments && sharedTree) {
       const node = document
-        ? (collection?.getDocumentTree(document.id) ?? sharedTree)
+        ? collection?.getDocumentTree(document.id) ?? sharedTree
         : sharedTree;
 
       if (node?.children?.length) {
         markdown += formatChildDocumentsAsMarkdown(
           node.children,
-          share.canonicalUrl
+          share.canonicalUrl,
         );
       }
     }

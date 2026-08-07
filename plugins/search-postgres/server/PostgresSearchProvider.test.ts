@@ -21,7 +21,7 @@ import PostgresSearchProvider from "./PostgresSearchProvider";
 const provider = SearchProviderManager.getProvider();
 
 beforeEach(async () => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
   await buildDocument();
 });
 
@@ -391,6 +391,46 @@ describe("PostgresSearchProvider", () => {
       expect(results.length).toBe(1);
     });
 
+    it("should include drafts with no collection created by user", async () => {
+      const user = await buildUser();
+      const draft = await buildDraftDocument({
+        teamId: user.teamId,
+        userId: user.id,
+        createdById: user.id,
+        collectionId: null,
+        title: "test",
+      });
+      const { results } = await provider.searchForUser(user, {
+        query: "test",
+        statusFilter: [StatusFilter.Draft],
+      });
+      expect(results.length).toBe(1);
+      expect(results[0].document?.id).toBe(draft.id);
+    });
+
+    it("should not include drafts created by user in inaccessible collections", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const otherUser = await buildUser({ teamId: team.id });
+      const privateCollection = await buildCollection({
+        teamId: team.id,
+        userId: otherUser.id,
+        permission: null,
+      });
+      await buildDraftDocument({
+        teamId: team.id,
+        userId: user.id,
+        createdById: user.id,
+        collectionId: privateCollection.id,
+        title: "test",
+      });
+      const { results } = await provider.searchForUser(user, {
+        query: "test",
+        statusFilter: [StatusFilter.Draft],
+      });
+      expect(results.length).toBe(0);
+    });
+
     it("should not include drafts with user read permission", async () => {
       const user = await buildUser();
       await buildDraftDocument({
@@ -722,6 +762,66 @@ describe("PostgresSearchProvider", () => {
       expect(results.length).toBe(1);
       expect(results[0].ranking).toBeTruthy();
       expect(results[0].document?.id).toBe(document.id);
+    });
+
+    it("should return no results for a user with no collection or document access", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const otherUser = await buildUser({ teamId: team.id });
+      const privateCollection = await buildCollection({
+        teamId: team.id,
+        userId: otherUser.id,
+        permission: null,
+      });
+      await buildDocument({
+        teamId: team.id,
+        userId: otherUser.id,
+        collectionId: privateCollection.id,
+        title: "test",
+      });
+
+      const { results, total } = await provider.searchForUser(user, {
+        query: "test",
+      });
+
+      expect(results.length).toBe(0);
+      expect(total).toBe(0);
+    });
+
+    it("should include drafts shared with the user through a group", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const otherUser = await buildUser({ teamId: team.id });
+      const draft = await buildDraftDocument({
+        teamId: team.id,
+        userId: otherUser.id,
+        createdById: otherUser.id,
+        collectionId: null,
+        title: "group draft test",
+      });
+
+      const group = await buildGroup({
+        teamId: team.id,
+      });
+      await group.$add("user", user, {
+        through: {
+          createdById: otherUser.id,
+        },
+      });
+      await GroupMembership.create({
+        createdById: otherUser.id,
+        groupId: group.id,
+        documentId: draft.id,
+        permission: DocumentPermission.Read,
+      });
+
+      const { results } = await provider.searchForUser(user, {
+        query: "group draft",
+        statusFilter: [StatusFilter.Draft],
+      });
+
+      expect(results.length).toBe(1);
+      expect(results[0].document?.id).toBe(draft.id);
     });
   });
 
@@ -1370,6 +1470,32 @@ describe("PostgresSearchProvider", () => {
     it("should not wildcard quoted queries", () => {
       expect(PostgresSearchProvider.webSearchQuery(`"this is a test"`)).toBe(
         `"this<->is<->a<->test"`
+      );
+    });
+    it("should strip interleaved trailing operator and escape characters", () => {
+      // pg-tsquery reorders trailing operators and may emit a tail like
+      // `&\` that, if stripped one character at a time in the wrong order,
+      // leaves a dangling `&` and triggers "no operand in tsquery".
+      expect(PostgresSearchProvider.webSearchQuery(`"plugins"\\&`)).toBe(
+        `"plugins"`
+      );
+    });
+    it("should not escape colons outside of a phrase", () => {
+      // pg-tsquery drops an unquoted colon but keeps a preceding backslash,
+      // so escaping here would leave a dangling "\" operand.
+      expect(
+        PostgresSearchProvider.webSearchQuery("hoffe, gehts gut :) bei")
+      ).toBe("(hoffe|gehts&gut)&bei:*");
+      expect(PostgresSearchProvider.webSearchQuery("sub:title:here")).toBe(
+        "sub&title&here:*"
+      );
+    });
+    it("should escape colons inside a phrase", () => {
+      expect(PostgresSearchProvider.webSearchQuery(`"sub:title:here"`)).toBe(
+        `"sub\\:title\\:here"`
+      );
+      expect(PostgresSearchProvider.webSearchQuery(`'sub:title'`)).toBe(
+        `"sub\\:title":*`
       );
     });
   });

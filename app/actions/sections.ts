@@ -13,12 +13,20 @@ ActiveCollectionSection.priority = 0.8;
 
 export const DeveloperSection = ({ t }: ActionContext) => t("Debug");
 
+export const DateSection = ({ t }: ActionContext) => t("Date");
+
+DateSection.priority = 1;
+
 export const DocumentSection = ({ t }: ActionContext) => t("Document");
 
 export const SearchResultsSection = ({ t }: ActionContext) =>
   t("Search results");
 
+SearchResultsSection.priority = -1;
+
 export const DocumentsSection = ({ t }: ActionContext) => t("Documents");
+
+DocumentsSection.priority = 0.8;
 
 export const ActiveDocumentSection = ({ t, stores }: ActionContext) => {
   const activeDocument = stores.documents.active;

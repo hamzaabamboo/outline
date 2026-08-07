@@ -1,12 +1,13 @@
 import { isHexColor } from "class-validator";
-import pickBy from "lodash/pickBy";
+import { pickBy } from "es-toolkit/compat";
 import { observer } from "mobx-react";
 import { TeamIcon } from "outline-icons";
 import { useRef, useState } from "react";
 import * as React from "react";
 import { useTranslation, Trans } from "react-i18next";
 import { toast } from "sonner";
-import { ThemeProvider, useTheme } from "styled-components";
+import { ThemeProvider } from "styled-components";
+import { errToString } from "@shared/utils/error";
 import { buildDarkTheme, buildLightTheme } from "@shared/styles/theme";
 import type { CustomTheme } from "@shared/types";
 import { TOCPosition, TeamPreference } from "@shared/types";
@@ -36,7 +37,6 @@ function Details() {
   const { dialogs, ui } = useStores();
   const { t } = useTranslation();
   const team = useCurrentTeam();
-  const theme = useTheme();
   const can = usePolicy(team);
 
   const form = useRef<HTMLFormElement>(null);
@@ -110,7 +110,7 @@ function Details() {
         });
         toast.success(t("Settings saved"));
       } catch (err) {
-        toast.error(err.message);
+        toast.error(errToString(err));
       }
     },
     [
@@ -173,15 +173,6 @@ function Details() {
     [team, t]
   );
 
-  const handleCommentingChange = React.useCallback(
-    async (checked: boolean) => {
-      team.setPreference(TeamPreference.Commenting, checked);
-      await team.save();
-      toast.success(t("Settings saved"));
-    },
-    [team, t]
-  );
-
   const isValid = form.current?.checkValidity();
 
   const newTheme = React.useMemo(
@@ -232,6 +223,8 @@ function Details() {
               autoComplete="organization"
               value={name}
               onChange={handleNameChange}
+              maxLength={TeamValidation.maxNameLength}
+              showCharacterCount
               required
             />
           </SettingRow>
@@ -246,6 +239,8 @@ function Details() {
               onChange={(ev: React.ChangeEvent<HTMLInputElement>) => {
                 setDescription(ev.target.value);
               }}
+              maxLength={TeamValidation.maxDescriptionLength}
+              showCharacterCount
             />
           </SettingRow>
           <SettingRow
@@ -271,14 +266,14 @@ function Details() {
           >
             <InputColor
               id="accent"
-              value={accent ?? theme.accent}
+              value={accent ?? newTheme.accent}
               label={t("Accent color")}
               onChange={setAccent}
               flex
             />
             <InputColor
               id="accentText"
-              value={accentText ?? theme.accentText}
+              value={accentText ?? newTheme.accentText}
               label={t("Accent text color")}
               onChange={setAccentText}
               flex
@@ -313,7 +308,7 @@ function Details() {
               value={tocPosition}
               onChange={handleTocPositionChange}
               label={t("Table of contents position")}
-              hideLabel
+              labelHidden
             />
           </SettingRow>
 
@@ -364,6 +359,7 @@ function Details() {
             />
           </SettingRow>
           <SettingRow
+            border={false}
             name={TeamPreference.SeamlessEdit}
             label={t("Separate editing")}
             description={t(
@@ -375,21 +371,6 @@ function Details() {
               name={TeamPreference.SeamlessEdit}
               checked={!team.getPreference(TeamPreference.SeamlessEdit)}
               onChange={handleSeamlessEditChange}
-            />
-          </SettingRow>
-          <SettingRow
-            border={false}
-            name={TeamPreference.Commenting}
-            label={t("Commenting")}
-            description={t(
-              "When enabled team members can add comments to documents."
-            )}
-          >
-            <Switch
-              id={TeamPreference.Commenting}
-              name={TeamPreference.Commenting}
-              checked={team.getPreference(TeamPreference.Commenting)}
-              onChange={handleCommentingChange}
             />
           </SettingRow>
 

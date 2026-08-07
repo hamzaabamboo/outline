@@ -1,10 +1,6 @@
 /* oxlint-disable lines-between-class-members */
 import fractionalIndex from "fractional-index";
-import find from "lodash/find";
-import findIndex from "lodash/findIndex";
-import isNil from "lodash/isNil";
-import remove from "lodash/remove";
-import uniq from "lodash/uniq";
+import { find, findIndex, isNil, keyBy, remove, uniq } from "es-toolkit/compat";
 import type {
   Identifier,
   Transaction,
@@ -49,15 +45,17 @@ import {
 import isUUID from "validator/lib/isUUID";
 import type {
   CollectionSort,
+  ImportableIntegrationService,
   ProsemirrorData,
   SourceMetadata,
   NavigationNode,
 } from "@shared/types";
-import { CollectionPermission } from "@shared/types";
+import { CollectionPermission, NavigationNodeType } from "@shared/types";
 import { UrlHelper } from "@shared/utils/UrlHelper";
 import { sortNavigationNodes } from "@shared/utils/collections";
 import slugify from "@shared/utils/slugify";
 import { CollectionValidation } from "@shared/validations";
+import { parser } from "@server/editor";
 import { ValidationError } from "@server/errors";
 import type { APIContext } from "@server/types";
 import { CacheHelper } from "@server/utils/CacheHelper";
@@ -75,7 +73,6 @@ import Team from "./Team";
 import User from "./User";
 import UserMembership from "./UserMembership";
 import ParanoidModel from "./base/ParanoidModel";
-import Fix from "./decorators/Fix";
 import { DocumentHelper } from "./helpers/DocumentHelper";
 import IsHexColor from "./validators/IsHexColor";
 import Length from "./validators/Length";
@@ -200,7 +197,6 @@ type AdditionalFindOptions = {
   },
 }))
 @Table({ tableName: "collections", modelName: "collection" })
-@Fix
 class Collection extends ParanoidModel<
   InferAttributes<Collection>,
   Partial<InferCreationAttributes<Collection>>
@@ -211,7 +207,7 @@ class Collection extends ParanoidModel<
     msg: `urlId must be 10 characters`,
   })
   @Unique
-  @Column
+  @Column(DataType.STRING)
   urlId: string;
 
   @NotContainsUrl
@@ -219,7 +215,7 @@ class Collection extends ParanoidModel<
     max: CollectionValidation.maxNameLength,
     msg: `name must be ${CollectionValidation.maxNameLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   /**
@@ -232,7 +228,7 @@ class Collection extends ParanoidModel<
     max: CollectionValidation.maxDescriptionLength,
     msg: `description must be ${CollectionValidation.maxDescriptionLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   description: string | null;
 
   /**
@@ -242,19 +238,19 @@ class Collection extends ParanoidModel<
   content: ProsemirrorData | null;
 
   /** An icon (or) emoji to use as the collection icon. */
-  @Column
+  @Column(DataType.STRING)
   icon: string | null;
 
   /** The color of the icon. */
   @IsHexColor
-  @Column
+  @Column(DataType.STRING)
   color: string | null;
 
   @Length({
     max: ValidateIndex.maxLength,
     msg: `index must be ${ValidateIndex.maxLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   index: string | null;
 
   @IsIn([Object.values(CollectionPermission)])
@@ -262,7 +258,7 @@ class Collection extends ParanoidModel<
   permission: CollectionPermission | null;
 
   @Default(false)
-  @Column
+  @Column(DataType.BOOLEAN)
   maintainerApprovalRequired: boolean;
 
   @Default(null)
@@ -270,7 +266,7 @@ class Collection extends ParanoidModel<
   documentStructure: NavigationNode[] | null;
 
   @Default(true)
-  @Column
+  @Column(DataType.BOOLEAN)
   sharing: boolean;
 
   @Default({ field: "title", direction: "asc" })
@@ -301,7 +297,7 @@ class Collection extends ParanoidModel<
 
   /** Whether the collection is archived, and if so when. */
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   archivedAt: Date | null;
 
   /** The minimum permission level required to manage templates in this collection. */
@@ -324,10 +320,28 @@ class Collection extends ParanoidModel<
 
   /** The frontend path to this collection. */
   get path(): string {
-    if (!this.name) {
-      return `/collection/untitled-${this.urlId}`;
+    return Collection.getPath({
+      name: this.name,
+      urlId: this.urlId,
+    });
+  }
+
+  /**
+   * Returns the frontend path for a collection.
+   *
+   * @param name The collection name.
+   * @param urlId The collection URL ID.
+   * @returns the frontend path for the collection.
+   */
+  static getPath({ name, urlId }: { name: string; urlId: string }): string {
+    if (!name) {
+      return `/collection/untitled-${urlId}`;
     }
-    return `/collection/${slugify(this.name)}-${this.urlId}`;
+    const slugifiedName = slugify(name);
+    if (!slugifiedName) {
+      return `/collection/untitled-${urlId}`;
+    }
+    return `/collection/${slugifiedName}-${urlId}`;
   }
 
   /**
@@ -349,9 +363,21 @@ class Collection extends ParanoidModel<
 
   @BeforeSave
   static async onBeforeSave(model: Collection) {
-    if (!model.content) {
+    const descriptionChanged = model.changed("description");
+    const contentChanged = model.changed("content");
+
+    if (descriptionChanged && !contentChanged) {
+      model.content = model.description
+        ? (parser.parse(model.description)?.toJSON() ?? null)
+        : null;
+    } else if (contentChanged && !descriptionChanged) {
+      model.description = model.content
+        ? await DocumentHelper.toMarkdown(model, { includeTitle: false })
+        : null;
+    } else if (!model.content) {
       model.content = await DocumentHelper.toJSON(model);
     }
+
     if (model.changed("documentStructure")) {
       await CacheHelper.clearData(
         RedisPrefixHelper.getCollectionDocumentsKey(model.id)
@@ -369,7 +395,7 @@ class Collection extends ParanoidModel<
         CacheHelper.setData(
           RedisPrefixHelper.getCollectionDocumentsKey(model.id),
           model.documentStructure,
-          60
+          Collection.DOCUMENT_STRUCTURE_CACHE_TTL
         );
 
       if (options.transaction) {
@@ -510,7 +536,7 @@ class Collection extends ParanoidModel<
   importId: string | null;
 
   @BelongsTo(() => Import, "apiImportId")
-  apiImport: Import<any> | null;
+  apiImport: Import<ImportableIntegrationService> | null;
 
   @ForeignKey(() => Import)
   @Column(DataType.UUID)
@@ -559,17 +585,39 @@ class Collection extends ParanoidModel<
       direction: "asc",
     };
 
+  static DOCUMENT_STRUCTURE_CACHE_TTL = 60;
+
   /**
    * Returns an array of unique userIds that are members of a collection,
    * either via group or direct membership.
    *
    * @param collectionId
+   * @param permission optional permission filter
+   *
    * @returns userIds
    */
-  static async membershipUserIds(collectionId: string) {
+  static async membershipUserIds(
+    collectionId: string,
+    permission?: CollectionPermission
+  ) {
     const collection = await this.scope("withAllMemberships").findOne({
       where: { id: collectionId },
+      include: [
+        {
+          association: "memberships",
+          required: false,
+          ...(permission ? { where: { permission } } : {}),
+          separate: true,
+        },
+        {
+          association: "groupMemberships",
+          required: false,
+          ...(permission ? { where: { permission } } : {}),
+          separate: true,
+        },
+      ],
     });
+
     if (!collection) {
       return [];
     }
@@ -634,15 +682,17 @@ class Collection extends ParanoidModel<
 
     if (isUUID(id)) {
       const collection = await scope.findOne({
+        ...rest,
         where: {
           id,
         },
-        ...rest,
         rejectOnEmpty: false,
       });
 
       if (!collection && rest.rejectOnEmpty) {
-        throw new EmptyResultError(`Collection doesn't exist with id: ${id}`);
+        throw rest.rejectOnEmpty instanceof Error
+          ? rest.rejectOnEmpty
+          : new EmptyResultError(`Collection doesn't exist with id: ${id}`);
       }
 
       return collection;
@@ -651,15 +701,17 @@ class Collection extends ParanoidModel<
     const match = id.match(UrlHelper.SLUG_URL_REGEX);
     if (match) {
       const collection = await scope.findOne({
+        ...rest,
         where: {
           urlId: match[1],
         },
-        ...rest,
         rejectOnEmpty: false,
       });
 
       if (!collection && rest.rejectOnEmpty) {
-        throw new EmptyResultError(`Collection doesn't exist with id: ${id}`);
+        throw rest.rejectOnEmpty instanceof Error
+          ? rest.rejectOnEmpty
+          : new EmptyResultError(`Collection doesn't exist with id: ${id}`);
       }
 
       return collection;
@@ -705,6 +757,29 @@ class Collection extends ParanoidModel<
     return !this.permission;
   }
 
+  /**
+   * Returns the collection's documentStructure via cache, populating it on
+   * miss. The cache is kept fresh by this model's save hooks, so callers
+   * should prefer this over re-fetching the column directly.
+   *
+   * @returns the cached documentStructure, or null when the collection has none.
+   */
+  getCachedDocumentStructure = async (): Promise<NavigationNode[] | null> => {
+    const result = await CacheHelper.getDataOrSet<NavigationNode[] | null>(
+      RedisPrefixHelper.getCollectionDocumentsKey(this.id),
+      async () =>
+        (
+          await (this.constructor as typeof Collection).findByPk(this.id, {
+            attributes: ["documentStructure"],
+            includeDocumentStructure: true,
+            rejectOnEmpty: true,
+          })
+        ).documentStructure,
+      Collection.DOCUMENT_STRUCTURE_CACHE_TTL
+    );
+    return result ?? null;
+  };
+
   getDocumentTree = (documentId: string): NavigationNode | null => {
     if (!this.documentStructure) {
       return null;
@@ -746,36 +821,75 @@ class Collection extends ParanoidModel<
     };
   };
 
-  deleteDocument = async function (document: Document, options?: FindOptions) {
+  /**
+   * Archives the collection and all of its non-archived documents. The
+   * collection's `archivedAt` and `archivedBy` are set to now and the acting
+   * user respectively, and child documents inherit the same `archivedAt`.
+   *
+   * @param ctx - the API context, including the acting user and optional transaction.
+   * @returns the updated collection.
+   */
+  archiveWithCtx = async (ctx: APIContext) => {
+    const { transaction } = ctx.state;
+    const { user } = ctx.state.auth;
+
+    this.archivedAt = new Date();
+    this.archivedById = user.id;
+    this.archivedBy = user;
+
+    await this.saveWithCtx(ctx, undefined, { name: "archive" });
+
+    await Document.update(
+      {
+        lastModifiedById: user.id,
+        archivedAt: this.archivedAt,
+      },
+      {
+        where: {
+          teamId: this.teamId,
+          collectionId: this.id,
+          archivedAt: { [Op.is]: null },
+        },
+        transaction,
+      }
+    );
+
+    return this;
+  };
+
+  deleteDocument = async (document: Document, options?: FindOptions) => {
     await this.removeDocumentInStructure(document, options);
 
-    // Helper to destroy all child documents for a document
-    const loopChildren = async (
-      documentId: string,
-      opts?: FindOptions<Document>
-    ) => {
+    // IDs come back breadth-first so reversing them destroys the deepest
+    // descendants first.
+    const childDocumentIds = (
+      await document.findAllChildDocumentIds(undefined, options)
+    ).reverse();
+
+    if (childDocumentIds.length) {
       const childDocuments = await Document.findAll({
+        ...options,
         where: {
-          parentDocumentId: documentId,
+          id: childDocumentIds,
         },
       });
+      const childDocumentsById = keyBy(childDocuments, (child) => child.id);
 
-      for (const child of childDocuments) {
-        await loopChildren(child.id, opts);
-        await child.destroy(opts);
+      // Destroyed one at a time to ensure model hooks run for each document.
+      for (const childDocumentId of childDocumentIds) {
+        await childDocumentsById[childDocumentId]?.destroy(options);
       }
-    };
+    }
 
-    await loopChildren(document.id, options);
     await document.destroy(options);
   };
 
-  removeDocumentInStructure = async function (
+  removeDocumentInStructure = async (
     document: Document,
     options?: FindOptions & {
       save?: boolean;
     }
-  ) {
+  ) => {
     if (!this.documentStructure) {
       return;
     }
@@ -833,7 +947,7 @@ class Collection extends ParanoidModel<
     return result;
   };
 
-  getDocumentParents = function (documentId: string): string[] | void {
+  getDocumentParents = (documentId: string): string[] | void => {
     let result!: string[];
 
     const loopChildren = (documents: NavigationNode[], path: string[] = []) => {
@@ -860,10 +974,10 @@ class Collection extends ParanoidModel<
   /**
    * Update document's title and url in the documentStructure
    */
-  updateDocument = async function (
+  updateDocument = async (
     updatedDocument: Document,
     options?: { transaction?: Transaction | null | undefined }
-  ) {
+  ) => {
     if (!this.documentStructure) {
       return;
     }
@@ -898,7 +1012,7 @@ class Collection extends ParanoidModel<
     return this;
   };
 
-  addDocumentToStructure = async function (
+  addDocumentToStructure = async (
     document: Document,
     index?: number,
     options: FindOptions & {
@@ -908,7 +1022,7 @@ class Collection extends ParanoidModel<
       includeArchived?: boolean;
       insertOrder?: "prepend" | "append";
     } = {}
-  ) {
+  ) => {
     if (!this.documentStructure) {
       this.documentStructure = [];
     }
@@ -1010,6 +1124,7 @@ class Collection extends ParanoidModel<
     id: this.id,
     title: this.name,
     url: this.path,
+    type: NavigationNodeType.Collection,
     icon: isNil(this.icon) ? undefined : this.icon,
     color: isNil(this.color) ? undefined : this.color,
     children: sortNavigationNodes(this.documentStructure ?? [], this.sort),

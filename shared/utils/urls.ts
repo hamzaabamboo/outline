@@ -1,4 +1,4 @@
-import escapeRegExp from "lodash/escapeRegExp";
+import { escapeRegExp } from "es-toolkit/compat";
 import env from "../env";
 import { isBrowser } from "./browser";
 import { parseDomain } from "./domains";
@@ -59,9 +59,9 @@ export function isInternalUrl(href: string) {
 }
 
 /**
- * Returns true if the given string is a link to a documement.
+ * Returns true if the given string is a link to a document.
  *
- * @param options Parsing options.
+ * @param url The url to check.
  * @returns True if a document, false otherwise.
  */
 export function isDocumentUrl(url: string) {
@@ -79,7 +79,7 @@ export function isDocumentUrl(url: string) {
 /**
  * Returns true if the given string is a link to a collection.
  *
- * @param options Parsing options.
+ * @param url The url to check.
  * @returns True if a collection, false otherwise.
  */
 export function isCollectionUrl(url: string) {
@@ -179,6 +179,24 @@ export function isBase64Url(url: string) {
   return match ? match : false;
 }
 
+const allowedSchemes = [
+  "mailto:",
+  "sms:",
+  "fax:",
+  "tel:",
+  "geo:",
+  "maps:",
+  "magnet:",
+];
+
+const allowedImageDataUris = [
+  "data:image/png;base64,",
+  "data:image/jpeg;base64,",
+  "data:image/gif;base64,",
+  "data:image/webp;base64,",
+  "data:image/avif;base64,",
+];
+
 /**
  * For use in the editor, this function will ensure that a url is
  * potentially valid, and filter out unsupported and malicious protocols.
@@ -191,18 +209,40 @@ export function sanitizeUrl(url: string | null | undefined) {
     return undefined;
   }
 
+  // Surrounding whitespace, a newline in particular, would otherwise fail
+  // validation and have a scheme prepended to an already qualified url.
+  const trimmed = url.trim();
+  const lower = trimmed.toLowerCase();
   if (
-    !isUrl(url, { requireHostname: false }) &&
-    !url.startsWith("/") &&
-    !url.startsWith("#") &&
-    !url.startsWith("mailto:") &&
-    !url.startsWith("sms:") &&
-    !url.startsWith("fax:") &&
-    !url.startsWith("tel:")
+    !isUrl(trimmed, { requireHostname: false }) &&
+    !trimmed.startsWith("/") &&
+    !trimmed.startsWith("#") &&
+    !allowedSchemes.some((scheme) => lower.startsWith(scheme))
   ) {
-    return `https://${url}`;
+    return `https://${trimmed}`;
   }
-  return url;
+  return trimmed;
+}
+
+/**
+ * For use in the editor on image-like elements, this function will ensure
+ * that a src is potentially valid. In addition to the protocols allowed by
+ * `sanitizeUrl`, base64-encoded image data URIs are permitted (excluding
+ * SVG, which can contain inline scripts).
+ *
+ * @param src The src to sanitize.
+ * @returns The sanitized src.
+ */
+export function sanitizeImageSrc(src: string | null | undefined) {
+  if (!src) {
+    return undefined;
+  }
+
+  const lower = src.toLowerCase();
+  if (allowedImageDataUris.some((scheme) => lower.startsWith(scheme))) {
+    return src;
+  }
+  return sanitizeUrl(src);
 }
 
 /**
@@ -222,6 +262,39 @@ export function urlRegex(url: string | null | undefined): RegExp | undefined {
 }
 
 /**
+ * Parse the share identifier from a given url.
+ *
+ * @param url The url to parse.
+ * @returns A share identifier or undefined if not found.
+ */
+export function parseShareIdFromUrl(url: string): string | undefined {
+  if (url[0] === "/") {
+    url = `${env.URL}${url}`;
+  }
+
+  let pathname;
+  try {
+    pathname = new URL(url).pathname;
+  } catch (_err) {
+    return;
+  }
+
+  const split = pathname.split("/");
+  const indexOfS = split.indexOf("s");
+
+  if (indexOfS >= 0) {
+    const shareId = split[indexOfS + 1];
+    if (shareId) {
+      // Remove trailing format like .md
+      const dotIndex = shareId.indexOf(".");
+      return dotIndex >= 0 ? shareId.substring(0, dotIndex) : shareId;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Extracts LIKELY urls from the given text, note this does not validate the urls.
  *
  * @param text The text to extract urls from.
@@ -229,6 +302,43 @@ export function urlRegex(url: string | null | undefined): RegExp | undefined {
  */
 export function getUrls(text: string) {
   return Array.from(text.match(/(?:https?):\/\/[^\s]+/gi) || []);
+}
+
+/**
+ * Removes the fragment (hash) from a url, if present.
+ *
+ * @param url The url to modify.
+ * @returns The url without its fragment.
+ */
+export function removeUrlFragment(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+    return parsed.toString();
+  } catch (_err) {
+    return url.split("#")[0];
+  }
+}
+
+/**
+ * Removes a suffix from the end of a url's pathname, if present. The url is
+ * parsed rather than string-replaced so that a matching substring elsewhere in
+ * the url (such as the hostname) is not affected.
+ *
+ * @param url The url to modify.
+ * @param suffix The pathname suffix to remove (e.g. `/edit`).
+ * @returns The url with the suffix removed from the end of its pathname.
+ */
+export function removeUrlPathSuffix(url: string, suffix: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith(suffix)) {
+      parsed.pathname = parsed.pathname.slice(0, -suffix.length);
+    }
+    return parsed.toString();
+  } catch (_err) {
+    return url.endsWith(suffix) ? url.slice(0, -suffix.length) : url;
+  }
 }
 
 /**

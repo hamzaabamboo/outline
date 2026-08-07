@@ -8,11 +8,12 @@ import {
   buildTeam,
   buildDocument,
 } from "@server/test/factories";
+import { withAPIContext } from "@server/test/support";
 import Collection from "./Collection";
 import Document from "./Document";
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  vi.resetAllMocks();
 });
 
 describe("#url", () => {
@@ -21,6 +22,22 @@ describe("#url", () => {
       id: "1234",
     });
     expect(collection.path).toBe(`/collection/untitled-${collection.urlId}`);
+  });
+
+  it("should return correct url with slugified collection name", () => {
+    const path = Collection.getPath({
+      name: "Test Collection",
+      urlId: "abcdefghij",
+    });
+    expect(path).toBe("/collection/test-collection-abcdefghij");
+  });
+
+  it("should return untitled when collection name is empty", () => {
+    const path = Collection.getPath({
+      name: "",
+      urlId: "abcdefghij",
+    });
+    expect(path).toBe("/collection/untitled-abcdefghij");
   });
 });
 
@@ -310,9 +327,9 @@ describe("#removeDocument", () => {
     const document = await buildDocument({ collectionId: collection.id });
     await collection.reload();
 
-    jest.spyOn(collection, "save");
+    const saveSpy = vi.spyOn(collection, "save");
     await collection.deleteDocument(document);
-    expect(collection.save).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
   });
 
   it("should remove documents from root", async () => {
@@ -349,6 +366,36 @@ describe("#removeDocument", () => {
     await collection.addDocumentToStructure(newDocument);
     expect(collection.documentStructure![0].children.length).toBe(1);
     // Remove the document
+    await collection.deleteDocument(document);
+    expect(collection.documentStructure!.length).toBe(0);
+    const collectionDocuments = await Document.findAndCountAll({
+      where: {
+        collectionId: collection.id,
+      },
+    });
+    expect(collectionDocuments.count).toBe(0);
+  });
+
+  it("should remove a document with deeply nested child documents", async () => {
+    const collection = await buildCollection();
+    const document = await buildDocument({ collectionId: collection.id });
+    await collection.reload();
+
+    let parentDocumentId = document.id;
+    for (let depth = 0; depth < 5; depth++) {
+      const child = await buildDocument({
+        parentDocumentId,
+        collectionId: collection.id,
+        teamId: collection.teamId,
+        lastModifiedById: collection.createdById,
+        createdById: collection.createdById,
+        title: `Child document ${depth}`,
+        text: "content",
+      });
+      await collection.addDocumentToStructure(child);
+      parentDocumentId = child.id;
+    }
+
     await collection.deleteDocument(document);
     expect(collection.documentStructure!.length).toBe(0);
     const collectionDocuments = await Document.findAndCountAll({
@@ -470,6 +517,30 @@ describe("#findByPk", () => {
     expect(response!.id).toBe(collection.id);
   });
 
+  it("should not allow a passed where to override the id", async () => {
+    const collection = await buildCollection();
+    const other = await buildCollection();
+
+    const response = await Collection.findByPk(collection.id, {
+      where: { id: other.id },
+    });
+    expect(response!.id).toBe(collection.id);
+
+    const byUrlId = await Collection.findByPk(collection.urlId, {
+      where: { urlId: other.urlId },
+    });
+    expect(byUrlId!.id).toBe(collection.id);
+  });
+
+  it("should throw the passed error when rejectOnEmpty is an error", async () => {
+    const error = new Error("does not exist");
+    await expect(
+      Collection.findByPk("0e8280ea-7b4c-40e5-98ba-ec8a2f00f5e8", {
+        rejectOnEmpty: error,
+      })
+    ).rejects.toThrow(error);
+  });
+
   it("should not return documentStructure by default", async () => {
     const collection = await buildCollection();
     const response = await Collection.findByPk(collection.id);
@@ -547,5 +618,61 @@ describe("#setIndex", () => {
     });
     expect(anotherCollection.index).not.toBeNull();
     expect(anotherCollection.index).not.toEqual(collection.index);
+  });
+});
+
+describe("#archiveWithCtx", () => {
+  it("should archive the collection and its non-archived documents", async () => {
+    const team = await buildTeam();
+    const user = await buildUser({ teamId: team.id });
+    const collection = await buildCollection({ teamId: team.id });
+    const document = await buildDocument({
+      collectionId: collection.id,
+      teamId: team.id,
+      publishedAt: new Date(),
+    });
+    const alreadyArchived = await buildDocument({
+      collectionId: collection.id,
+      teamId: team.id,
+      publishedAt: new Date(),
+      archivedAt: new Date("2024-01-01"),
+    });
+
+    await withAPIContext(user, (ctx) => collection.archiveWithCtx(ctx));
+
+    await Promise.all([
+      collection.reload(),
+      document.reload(),
+      alreadyArchived.reload(),
+    ]);
+
+    expect(collection.archivedAt).not.toBeNull();
+    expect(collection.archivedById).toBe(user.id);
+    expect(document.archivedAt).not.toBeNull();
+    expect(document.archivedAt?.getTime()).toBe(
+      collection.archivedAt!.getTime()
+    );
+    expect(document.lastModifiedById).toBe(user.id);
+    // Previously-archived documents keep their original archivedAt timestamp.
+    expect(alreadyArchived.archivedAt?.getTime()).toBe(
+      new Date("2024-01-01").getTime()
+    );
+  });
+
+  it("should leave documents in other collections untouched", async () => {
+    const team = await buildTeam();
+    const user = await buildUser({ teamId: team.id });
+    const collection = await buildCollection({ teamId: team.id });
+    const otherCollection = await buildCollection({ teamId: team.id });
+    const otherDocument = await buildDocument({
+      collectionId: otherCollection.id,
+      teamId: team.id,
+      publishedAt: new Date(),
+    });
+
+    await withAPIContext(user, (ctx) => collection.archiveWithCtx(ctx));
+
+    await otherDocument.reload();
+    expect(otherDocument.archivedAt).toBeNull();
   });
 });

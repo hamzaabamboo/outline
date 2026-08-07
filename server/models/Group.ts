@@ -18,7 +18,6 @@ import Team from "./Team";
 import User from "./User";
 import ParanoidModel from "./base/ParanoidModel";
 import { CounterCache } from "./decorators/CounterCache";
-import Fix from "./decorators/Fix";
 import Length from "./validators/Length";
 import NotContainsUrl from "./validators/NotContainsUrl";
 
@@ -39,7 +38,7 @@ import NotContainsUrl from "./validators/NotContainsUrl";
   tableName: "groups",
   modelName: "group",
   validate: {
-    async isUniqueNameInTeam() {
+    async isUniqueNameInTeam(this: Group) {
       const foundItem = await Group.findOne({
         where: {
           teamId: this.teamId,
@@ -58,14 +57,17 @@ import NotContainsUrl from "./validators/NotContainsUrl";
     },
   },
 })
-@Fix
 class Group extends ParanoidModel<
   InferAttributes<Group>,
   Partial<InferCreationAttributes<Group>>
 > {
-  @Length({ min: 0, max: 255, msg: "name must be 255 characters or less" })
+  @Length({
+    min: 0,
+    max: GroupValidation.maxNameLength,
+    msg: `name must be ${GroupValidation.maxNameLength} characters or less`,
+  })
   @NotContainsUrl
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   @Length({
@@ -76,7 +78,7 @@ class Group extends ParanoidModel<
   @Column(DataType.TEXT)
   description: string;
 
-  @Column
+  @Column(DataType.STRING)
   externalId: string;
 
   @Column(DataType.BOOLEAN)
@@ -116,7 +118,20 @@ class Group extends ParanoidModel<
   @BelongsToMany(() => User, () => GroupUser)
   users: User[];
 
-  @CounterCache(() => GroupUser, { as: "members", foreignKey: "groupId" })
+  @CounterCache(() => GroupUser, {
+    as: "members",
+    foreignKey: "groupId",
+    include: [
+      {
+        association: "user",
+        required: true,
+        attributes: [],
+        where: {
+          suspendedAt: { [Op.is]: null },
+        },
+      },
+    ],
+  })
   memberCount: Promise<number>;
 }
 

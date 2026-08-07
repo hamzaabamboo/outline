@@ -1,8 +1,9 @@
-import difference from "lodash/difference";
+import { difference } from "es-toolkit/compat";
 import { observer } from "mobx-react";
 import { DOMParser as ProsemirrorDOMParser } from "prosemirror-model";
 import { TextSelection } from "prosemirror-state";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { mergeRefs } from "react-merge-refs";
 import type { Optional } from "utility-types";
@@ -15,8 +16,8 @@ import { AttachmentValidation } from "@shared/validations";
 import ClickablePadding from "~/components/ClickablePadding";
 import ErrorBoundary from "~/components/ErrorBoundary";
 import type { Props as EditorProps, Editor as SharedEditor } from "~/editor";
+import { toastNotice } from "~/editor/toastNotice";
 import useCurrentUser from "~/hooks/useCurrentUser";
-import useDictionary from "~/hooks/useDictionary";
 import useEditorClickHandlers from "~/hooks/useEditorClickHandlers";
 import useEmbeds from "~/hooks/useEmbeds";
 import useStores from "~/hooks/useStores";
@@ -28,12 +29,7 @@ const LazyLoadedEditor = lazyWithRetry(() => import("~/editor"));
 
 export type Props = Optional<
   EditorProps,
-  | "placeholder"
-  | "defaultValue"
-  | "onClickLink"
-  | "embeds"
-  | "dictionary"
-  | "extensions"
+  "placeholder" | "defaultValue" | "onClickLink" | "embeds" | "extensions"
 > & {
   embedsDisabled?: boolean;
   onSynced?: () => Promise<void>;
@@ -52,7 +48,7 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
   } = props;
   const { comments } = useStores();
   const { shareId } = useShare();
-  const dictionary = useDictionary();
+  const { t } = useTranslation();
   const embeds = useEmbeds(!shareId);
   const localRef = React.useRef<SharedEditor>();
   const preferences = useCurrentUser({ rejectOnEmpty: false })?.preferences;
@@ -95,11 +91,11 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
   const handleFileUploadStart = React.useCallback(() => {
     uploadState.current.timeoutId = setTimeout(() => {
       uploadState.current.toastId = toast.loading(
-        dictionary.uploadingWithProgress(0)
+        t("Uploading… {{ progress }}%", { progress: 0 })
       );
     }, 2000);
     onFileUploadStart?.();
-  }, [onFileUploadStart, dictionary.uploadingWithProgress]);
+  }, [onFileUploadStart, t]);
 
   const handleFileUploadProgress = React.useCallback(
     (fileId: string, fractionComplete: number) => {
@@ -113,12 +109,12 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
 
       // Update toast if visible
       if (uploadState.current.toastId) {
-        toast.loading(dictionary.uploadingWithProgress(percent), {
+        toast.loading(t("Uploading… {{ progress }}%", { progress: percent }), {
           id: uploadState.current.toastId,
         });
       }
     },
-    [dictionary.uploadingWithProgress]
+    [t]
   );
 
   const handleFileUploadStop = React.useCallback(() => {
@@ -183,7 +179,7 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
         onFileUploadStart: handleFileUploadStart,
         onFileUploadStop: handleFileUploadStop,
         onFileUploadProgress: handleFileUploadProgress,
-        dictionary,
+        onNotice: toastNotice,
         isAttachment,
       });
     },
@@ -192,7 +188,6 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
       handleFileUploadStart,
       handleFileUploadStop,
       handleFileUploadProgress,
-      dictionary,
       handleUploadFile,
     ]
   );
@@ -206,42 +201,51 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
     []
   );
 
-  const updateComments = React.useCallback(() => {
-    if (onCreateCommentMark && onDeleteCommentMark && localRef.current) {
-      const commentMarks = localRef.current.getComments();
-      const commentIds = comments.orderedData.map((c) => c.id);
-      const commentMarkIds = commentMarks?.map((c) => c.id);
-      const focus = previousCommentIds.current !== undefined;
-      const newCommentIds = difference(
-        commentMarkIds,
-        previousCommentIds.current ?? [],
-        commentIds
-      );
+  const updateComments = React.useCallback(
+    (event?: { remote: boolean }) => {
+      if (onCreateCommentMark && onDeleteCommentMark && localRef.current) {
+        const commentMarks = localRef.current.getComments();
+        const commentIds = comments.orderedData.map((c) => c.id);
+        const commentMarkIds = commentMarks?.map((c) => c.id);
 
-      newCommentIds.forEach((commentId) => {
-        const mark = commentMarks.find((c) => c.id === commentId);
-        if (mark) {
-          onCreateCommentMark(mark.id, mark.userId, { focus });
-        }
-      });
+        // Only marks created by a local change should steal focus. Marks that
+        // arrive through a remote or sync transaction, or that are discovered
+        // by a rescan outside of a change event – such as the initial load of
+        // a document containing a draft comment – should not.
+        const focus =
+          previousCommentIds.current !== undefined && !!event && !event.remote;
+        const newCommentIds = difference(
+          commentMarkIds,
+          previousCommentIds.current ?? [],
+          commentIds
+        );
 
-      const removedCommentIds = difference(
-        previousCommentIds.current ?? [],
-        commentMarkIds ?? []
-      );
+        newCommentIds.forEach((commentId) => {
+          const mark = commentMarks.find((c) => c.id === commentId);
+          if (mark) {
+            onCreateCommentMark(mark.id, mark.userId, { focus });
+          }
+        });
 
-      removedCommentIds.forEach((commentId) => {
-        onDeleteCommentMark(commentId);
-      });
+        const removedCommentIds = difference(
+          previousCommentIds.current ?? [],
+          commentMarkIds ?? []
+        );
 
-      previousCommentIds.current = commentMarkIds;
-    }
-  }, [onCreateCommentMark, onDeleteCommentMark, comments.orderedData]);
+        removedCommentIds.forEach((commentId) => {
+          onDeleteCommentMark(commentId);
+        });
 
-  const handleChange = React.useCallback(
-    (event) => {
-      onChange?.(event);
-      updateComments();
+        previousCommentIds.current = commentMarkIds;
+      }
+    },
+    [onCreateCommentMark, onDeleteCommentMark, comments.orderedData]
+  );
+
+  const handleChange = React.useCallback<NonNullable<EditorProps["onChange"]>>(
+    (value, event) => {
+      onChange?.(value, event);
+      updateComments(event);
     },
     [onChange, updateComments]
   );
@@ -289,7 +293,6 @@ function Editor(props: Props, ref: React.RefObject<SharedEditor> | null) {
             uploadFile={handleUploadFile}
             embeds={embeds}
             userPreferences={preferences}
-            dictionary={dictionary}
             {...props}
             onClickLink={handleClickLink}
             onChange={handleChange}

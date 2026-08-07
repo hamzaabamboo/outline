@@ -1,9 +1,6 @@
 import commandScore from "command-score";
 import invariant from "invariant";
-import deburr from "lodash/deburr";
-import differenceWith from "lodash/differenceWith";
-import filter from "lodash/filter";
-import orderBy from "lodash/orderBy";
+import { deburr, differenceWith, filter, orderBy } from "es-toolkit/compat";
 import { computed, action, runInAction } from "mobx";
 import type { UserRole } from "@shared/types";
 import User from "~/models/User";
@@ -116,6 +113,19 @@ export default class UsersStore extends Store<User> {
     client.post(`/users.resendInvite`, {
       id: user.id,
     });
+
+  /**
+   * Returns the loaded user with the given email address, if any.
+   *
+   * @param email the email address to look up.
+   * @returns the matching user, or undefined if none exists.
+   */
+  getByEmail = (email: string): User | undefined => {
+    const normalizedEmail = email.trim().toLowerCase();
+    return this.all.find(
+      (user) => user.email?.trim().toLowerCase() === normalizedEmail
+    );
+  };
 
   /**
    * Returns users that are not in the given document, optionally filtered by a query.

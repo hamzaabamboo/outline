@@ -5,9 +5,9 @@ import { mergeRefs } from "react-merge-refs";
 import { useRouteMatch } from "react-router-dom";
 import styled from "styled-components";
 import Text from "@shared/components/Text";
+import type { CommentAnchor } from "@shared/editor/commands/comment";
 import { richExtensions, withComments } from "@shared/editor/nodes";
-import { TeamPreference } from "@shared/types";
-import { colorPalette } from "@shared/utils/collections";
+import { colorPalette } from "@shared/constants";
 import Comment from "~/models/Comment";
 import type Document from "~/models/Document";
 import type Template from "~/models/Template";
@@ -15,6 +15,8 @@ import type { RefHandle } from "~/components/ContentEditable";
 import { useDocumentContext } from "~/components/DocumentContext";
 import type { Props as EditorProps } from "~/components/Editor";
 import Editor from "~/components/Editor";
+import { useSplitView } from "~/components/SplitView/context";
+import type { Editor as SharedEditor } from "~/editor";
 import Flex from "~/components/Flex";
 import Time from "~/components/Time";
 import { withUIExtensions } from "~/editor/extensions";
@@ -34,11 +36,15 @@ import { decodeURIComponentSafe } from "~/utils/urls";
 import MultiplayerEditor from "./AsyncMultiplayerEditor";
 import DocumentMeta from "./DocumentMeta";
 import DocumentTitle from "./DocumentTitle";
-import first from "lodash/first";
+import { first } from "es-toolkit/compat";
 import { getLangFor } from "~/utils/language";
 import useShare from "@shared/hooks/useShare";
+import CodeWordBreak from "@shared/editor/extensions/CodeWordBreak";
 
-const extensions = withUIExtensions(withComments(richExtensions));
+const extensions = [
+  CodeWordBreak,
+  ...withUIExtensions(withComments(richExtensions)),
+];
 
 type Props = Omit<EditorProps, "editorStyle"> & {
   onChangeTitle: (title: string) => void;
@@ -59,18 +65,20 @@ type Props = Omit<EditorProps, "editorStyle"> & {
  * The main document editor includes an editable title with metadata below it,
  * and support for commenting.
  */
-function DocumentEditor(props: Props, ref: React.RefObject<any>) {
+function DocumentEditor(props: Props, ref: React.ForwardedRef<SharedEditor>) {
+  const editorRef = React.useRef<SharedEditor>(null);
   const titleRef = React.useRef<RefHandle>(null);
   const { t } = useTranslation();
   const match = useRouteMatch();
   const { setFocusedCommentId } = useDocumentContext();
   const focusedComment = useFocusedComment();
   const { ui, comments } = useStores();
+  const { pane } = useSplitView();
   const user = useCurrentUser({ rejectOnEmpty: false });
   const team = useCurrentTeam({ rejectOnEmpty: false });
   const sidebarContext = useLocationSidebarContext();
   const params = useQuery();
-  const { shareId } = useShare();
+  const { shareId, showLastUpdated } = useShare();
   const {
     document,
     onChangeTitle,
@@ -82,15 +90,15 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
     ...rest
   } = props;
   const can = usePolicy(document);
-  const commentingEnabled = !!team?.getPreference(TeamPreference.Commenting);
+  const commentingEnabled = !!team?.commentingEnabled;
 
   const iconColor = document.color ?? (first(colorPalette) as string);
   const childRef = React.useRef<HTMLDivElement>(null);
   const focusAtStart = React.useCallback(() => {
-    if (ref.current) {
-      ref.current.focusAtStart();
+    if (editorRef.current) {
+      editorRef.current.focusAtStart();
     }
-  }, [ref]);
+  }, []);
 
   React.useEffect(() => {
     if (focusedComment && focusedComment.documentId === document.id) {
@@ -101,9 +109,9 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
       ) {
         setFocusedCommentId(focusedComment.id);
       }
-      ui.set({ rightSidebar: "comments" });
+      ui.setRightSidebar("comments", pane);
     }
-  }, [focusedComment, ui, document.id, params]);
+  }, [focusedComment, ui, pane, document.id, params, setFocusedCommentId]);
 
   // Save document when blurring title, but delay so that if clicking on a
   // button this is allowed to execute first.
@@ -113,21 +121,25 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
 
   const handleGoToNextInput = React.useCallback(
     (insertParagraph: boolean) => {
-      if (insertParagraph && ref.current) {
-        const { view } = ref.current;
+      if (insertParagraph && editorRef.current) {
+        const { view } = editorRef.current;
         const { dispatch, state } = view;
         dispatch(state.tr.insert(0, state.schema.nodes.paragraph.create()));
       }
 
       focusAtStart();
     },
-    [focusAtStart, ref]
+    [focusAtStart]
   );
 
   // Create a Comment model in local store when a comment mark is created, this
   // acts as a local draft before submission.
   const handleDraftComment = React.useCallback(
-    (commentId: string, createdById: string, options?: { focus: boolean }) => {
+    (
+      commentId: string,
+      createdById: string,
+      options?: { focus: boolean; anchor?: CommentAnchor }
+    ) => {
       if (comments.get(commentId) || createdById !== user?.id) {
         return;
       }
@@ -142,13 +154,24 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
         comments
       );
       comment.id = commentId;
+      comment.pendingAnchor = options?.anchor;
       comments.add(comment);
 
       if (options?.focus) {
         setFocusedCommentId(commentId);
       }
     },
-    [comments, user?.id, props.id]
+    [comments, user?.id, props.id, setFocusedCommentId]
+  );
+
+  // Focus a comment and open the sidebar when its mark or gutter marker is
+  // clicked.
+  const handleClickCommentMark = React.useCallback(
+    (commentId: string) => {
+      setFocusedCommentId(commentId);
+      ui.setRightSidebar("comments", pane);
+    },
+    [setFocusedCommentId, ui, pane]
   );
 
   // Soft delete the Comment model when associated mark is totally removed.
@@ -212,7 +235,7 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
         placeholder={t("Untitled")}
       />
       {shareId ? (
-        document.updatedAt ? (
+        showLastUpdated && document.updatedAt ? (
           <SharedMeta type="tertiary">
             {t("Last updated")} <Time dateTime={document.updatedAt} addSuffix />
           </SharedMeta>
@@ -231,7 +254,7 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
         />
       ) : null}
       <EditorComponent
-        ref={mergeRefs([ref, handleRefChanged])}
+        ref={mergeRefs([ref, editorRef, handleRefChanged])}
         lang={getLangFor(document.language)}
         autoFocus={!!document.title && !props.defaultValue}
         placeholder={t("Type '/' to insert, or start writing…")}
@@ -240,7 +263,7 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
         userId={user?.id}
         focusedCommentId={focusedComment?.id}
         onClickCommentMark={
-          commentingEnabled && can.comment ? setFocusedCommentId : undefined
+          commentingEnabled && can.comment ? handleClickCommentMark : undefined
         }
         onCreateCommentMark={
           commentingEnabled && can.comment ? handleDraftComment : undefined
@@ -250,7 +273,7 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
         }
         onOpenCommentsSidebar={
           commentingEnabled
-            ? () => ui.set({ rightSidebar: "comments" })
+            ? () => ui.setRightSidebar("comments", pane)
             : undefined
         }
         onInit={handleInit}
@@ -259,6 +282,7 @@ function DocumentEditor(props: Props, ref: React.RefObject<any>) {
         extensions={extensions}
         editorStyle={editorStyle}
         {...rest}
+        canComment={commentingEnabled && can.comment}
       />
       <div ref={childRef}>{children}</div>
     </Flex>

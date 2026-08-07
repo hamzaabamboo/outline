@@ -1,5 +1,6 @@
 import type { Next } from "koa";
-import capitalize from "lodash/capitalize";
+import { capitalize } from "es-toolkit/compat";
+import httpErrors from "http-errors";
 import type { UserRole } from "@shared/types";
 import { UserRoleHelper } from "@shared/utils/UserRoleHelper";
 import tracer, {
@@ -64,7 +65,9 @@ export default function auth(options: AuthenticationOptions = {}) {
         );
       }
     } catch (err) {
-      if (options.optional) {
+      // Credentials that are valid but insufficient are always surfaced,
+      // otherwise the request would be silently downgraded to anonymous.
+      if (options.optional && !(err instanceof httpErrors.Forbidden)) {
         ctx.state.auth = {};
       } else {
         throw err;
@@ -177,7 +180,7 @@ async function validateAuthentication(
       throw AuthenticationError("Access token is expired");
     }
     if (!authentication.canAccess(ctx.originalUrl)) {
-      throw AuthenticationError(
+      throw AuthorizationError(
         "Access token does not have access to this resource"
       );
     }
@@ -220,9 +223,7 @@ async function validateAuthentication(
     }
 
     if (!apiKey.canAccess(ctx.originalUrl)) {
-      throw AuthenticationError(
-        "API key does not have access to this resource"
-      );
+      throw AuthorizationError("API key does not have access to this resource");
     }
 
     user = await User.findByPk(apiKey.userId, {

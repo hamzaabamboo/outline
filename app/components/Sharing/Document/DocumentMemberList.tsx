@@ -1,4 +1,4 @@
-import orderBy from "lodash/orderBy";
+import { orderBy } from "es-toolkit/compat";
 import { observer } from "mobx-react";
 import * as React from "react";
 import { useTranslation, Trans } from "react-i18next";
@@ -132,6 +132,7 @@ function DocumentMemberList({ document, invitedInSession }: Props) {
         new Map(
           groupMemberships
             .inDocument(document.id)
+            .filter((membership) => membership.group)
             .map((membership) => [membership.group.id, membership])
         ).values()
       )

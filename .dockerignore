@@ -25,3 +25,5 @@ node_modules
 **/__mocks__
 server/config/certs/*.key
 server/config/certs/*.cert
+**/__snapshots__
+**/test/fixtures

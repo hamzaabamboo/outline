@@ -1,4 +1,4 @@
-import isEqual from "lodash/isEqual";
+import { isEqual } from "es-toolkit/compat";
 import { computed, observable } from "mobx";
 import Model from "./base/Model";
 import Field from "./decorators/Field";
@@ -18,7 +18,7 @@ class Policy extends Model {
   /**
    * Abilities flattened to an object with boolean values.
    */
-  @computed
+  @computed({ keepAlive: true })
   get flattenedAbilities() {
     const abilities: Record<string, boolean> = {};
     for (const [key, value] of Object.entries(this.abilities)) {

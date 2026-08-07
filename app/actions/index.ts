@@ -15,10 +15,15 @@ import type {
 } from "~/types";
 import Analytics from "~/utils/Analytics";
 import history from "~/utils/history";
+import { pushOrOpenInSplit } from "~/utils/splitView";
 import type { Action as KbarAction } from "kbar";
 
-export function resolve<T>(value: any, context: ActionContext): T {
-  return typeof value === "function" ? value(context) : value;
+export function resolve<T>(value: unknown, context: ActionContext): T {
+  return (
+    typeof value === "function"
+      ? (value as (context: ActionContext) => T)(context)
+      : value
+  ) as T;
 }
 
 export const ActionSeparator: TActionSeparator = {
@@ -105,6 +110,42 @@ export function createRootMenuAction(
     section: "Root",
     children: actions,
   };
+}
+
+/**
+ * Determines whether any of the given actions are visible in the context,
+ * without resolving the remainder of the menu items.
+ *
+ * @param actions - the actions to check.
+ * @param context - the context to resolve visibility against.
+ * @returns true if at least one action is visible.
+ */
+export function hasVisibleActions(
+  actions: (ActionVariant | ActionGroup | TActionSeparator)[],
+  context: ActionContext
+): boolean {
+  return actions.some((action) => {
+    switch (action.type) {
+      case "action": {
+        if (resolve<boolean>(action.visible, context) === false) {
+          return false;
+        }
+        if (action.variant === "action_with_children") {
+          const children = resolve<
+            (ActionVariant | ActionGroup | TActionSeparator)[]
+          >(action.children, context);
+          return hasVisibleActions(children, context);
+        }
+        return true;
+      }
+
+      case "action_group":
+        return hasVisibleActions(action.actions, context);
+
+      case "action_separator":
+        return false;
+    }
+  });
 }
 
 export function actionToMenuItem(
@@ -215,12 +256,19 @@ export function actionToKBar(
   const section = resolve<string>(action.section, context);
   const subtitle = resolve<string>(action.description, context);
 
-  const sectionPriority =
-    typeof action.section !== "string" && "priority" in action.section
-      ? ((action.section.priority as number) ?? 0)
-      : 0;
+  // Sections are passed to the command bar as objects so that their declared
+  // priority orders the sections themselves – given a bare string it would
+  // instead order them by the match score of whichever result happens to come
+  // first, which lets a section with an exact keyword match jump to the top.
+  const sectionWithPriority = {
+    name: section,
+    priority:
+      typeof action.section !== "string" && "priority" in action.section
+        ? ((action.section.priority as number) ?? 0)
+        : 0,
+  };
 
-  const priority = (1 + (action.priority ?? 0)) * (1 + (sectionPriority ?? 0));
+  const priority = 1 + (action.priority ?? 0);
 
   switch (action.variant) {
     case "action":
@@ -230,7 +278,7 @@ export function actionToKBar(
         {
           id: action.id,
           name,
-          section,
+          section: sectionWithPriority,
           keywords: action.keywords,
           shortcut: action.shortcut,
           subtitle,
@@ -255,7 +303,7 @@ export function actionToKBar(
         {
           id: action.id,
           name,
-          section,
+          section: sectionWithPriority,
           keywords: action.keywords,
           shortcut: action.shortcut,
           icon,
@@ -282,7 +330,17 @@ export async function performAction(
     action.variant === "action"
       ? () => action.perform(context)
       : action.variant === "internal_link"
-        ? () => history.push(resolve<LocationDescriptor>(action.to, context))
+        ? () => {
+            const to = resolve<LocationDescriptor>(action.to, context);
+
+            // Holding the modifier while triggering a command bar action
+            // opens the route in the secondary pane of the split view.
+            if (context.isCommandBar) {
+              pushOrOpenInSplit(history, to);
+            } else {
+              history.push(to);
+            }
+          }
         : () => window.open(action.url, action.target);
 
   const result = perform();

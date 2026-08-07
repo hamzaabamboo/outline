@@ -5,10 +5,14 @@ import { UnfurlResourceType } from "@shared/types";
 import { dateLocale } from "@shared/utils/date";
 import type { Document, User, Group } from "@server/models";
 import { View } from "@server/models";
+import { DocumentHelper } from "@server/models/helpers/DocumentHelper";
 import { opts } from "@server/utils/i18n";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous payload from internal callers and third-party unfurl plugins.
+type UnfurlData = Record<string, any>;
+
 async function presentUnfurl(
-  data: Record<string, any>,
+  data: UnfurlData,
   options?: { includeEmail: boolean }
 ) {
   switch (data.type) {
@@ -29,27 +33,22 @@ async function presentUnfurl(
   }
 }
 
+// The data will have been transformed by the unfurl plugin, fields are picked
+// individually so that additional metadata is never exposed in the response.
 const presentURL = (
-  data: Record<string, any>
-): UnfurlResponse[UnfurlResourceType.URL] => {
-  // TODO: For backwards compatibility, remove once cache has expired in next release.
-  if (data.transformedUnfurl) {
-    delete data.transformedUnfurl;
-    return data as UnfurlResponse[UnfurlResourceType.URL]; // this would have been transformed by the unfurl plugin.
-  }
-
-  return {
-    type: UnfurlResourceType.URL,
-    url: data.url,
-    title: data.meta.title,
-    description: data.meta.description,
-    thumbnailUrl: (data.links.thumbnail ?? [])[0]?.href ?? "",
-    faviconUrl: (data.links.icon ?? [])[0]?.href ?? "",
-  };
-};
+  data: UnfurlData
+): UnfurlResponse[UnfurlResourceType.URL] => ({
+  type: UnfurlResourceType.URL,
+  url: data.url,
+  title: data.title,
+  description: data.description,
+  color: data.color,
+  thumbnailUrl: data.thumbnailUrl,
+  faviconUrl: data.faviconUrl,
+});
 
 const presentMention = async (
-  data: Record<string, any>,
+  data: UnfurlData,
   options?: { includeEmail: boolean }
 ): Promise<UnfurlResponse[UnfurlResourceType.Mention]> => {
   const user: User = data.user;
@@ -69,7 +68,7 @@ const presentMention = async (
 };
 
 const presentGroup = async (
-  data: Record<string, any>
+  data: UnfurlData
 ): Promise<UnfurlResponse[UnfurlResourceType.Group]> => {
   const group: Group = data.group;
   const memberCount = await group.memberCount;
@@ -89,32 +88,41 @@ const presentGroup = async (
 };
 
 const presentDocument = (
-  data: Record<string, any>
+  data: UnfurlData
 ): UnfurlResponse[UnfurlResourceType.Document] => {
   const document: Document = data.document;
-  const viewer: User = data.viewer;
+  const viewer: User | undefined = data.viewer;
+  const url: string | undefined = data.url;
+  const anchor: string | undefined = data.anchor;
+
+  // When the URL targets a specific heading, preview the content of that
+  // section rather than the top of the document.
+  const sectionSummary = anchor
+    ? DocumentHelper.getAnchorContent(document, anchor)
+    : undefined;
+
   return {
-    url: document.url,
+    url: url ?? `${document.url}${anchor ?? ""}`,
     type: UnfurlResourceType.Document,
     id: document.id,
     title: document.titleWithDefault,
-    summary: document.getSummary(),
-    lastActivityByViewer: presentLastActivityInfoFor(document, viewer),
+    summary: sectionSummary || document.getSummary(),
+    lastActivityByViewer: viewer
+      ? presentLastActivityInfoFor(document, viewer)
+      : undefined,
   };
 };
 
-const presentPR = (
-  data: Record<string, any>
-): UnfurlResponse[UnfurlResourceType.PR] =>
+const presentPR = (data: UnfurlData): UnfurlResponse[UnfurlResourceType.PR] =>
   data as UnfurlResponse[UnfurlResourceType.PR]; // this would have been transformed by the unfurl plugin.
 
 const presentIssue = (
-  data: Record<string, any>
+  data: UnfurlData
 ): UnfurlResponse[UnfurlResourceType.Issue] =>
   data as UnfurlResponse[UnfurlResourceType.Issue]; // this would have been transformed by the unfurl plugin.
 
 const presentProject = (
-  data: Record<string, any>
+  data: UnfurlData
 ): UnfurlResponse[UnfurlResourceType.Project] =>
   data as UnfurlResponse[UnfurlResourceType.Project]; // this would have been transformed by the unfurl plugin.
 

@@ -1,5 +1,6 @@
-import isMatch from "lodash/isMatch";
-import type { Token } from "markdown-it";
+import { isMatch } from "es-toolkit/compat";
+import { sanitizeUrl } from "../../utils/urls";
+import type Token from "markdown-it/lib/token.mjs";
 import type {
   NodeSpec,
   Node as ProsemirrorNode,
@@ -13,6 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 import env from "../../env";
 import type { UnfurlResponse } from "../../types";
 import { MentionType, UnfurlResourceType } from "../../types";
+import { dateToReadable } from "../../utils/date";
 import {
   MentionCollection,
   MentionDocument,
@@ -20,6 +22,7 @@ import {
   MentionIssue,
   MentionProject,
   MentionPullRequest,
+  MentionDate,
   MentionURL,
   MentionUser,
 } from "../components/Mentions";
@@ -32,16 +35,35 @@ import mentionRule from "../rules/mention";
 import type { ComponentProps } from "../types";
 import Node from "./Node";
 
+/**
+ * Formats a date mention's stored value (a date-only or time-specific ISO
+ * string) into a human-readable label for display and serialization.
+ *
+ * @param node the date mention node.
+ * @returns the readable label, e.g. "February 3rd at 1:00 PM".
+ */
+function dateMentionLabel(node: ProsemirrorNode): string {
+  const modelId = node.attrs.modelId;
+  return typeof modelId === "string"
+    ? dateToReadable(modelId)
+    : node.attrs.label;
+}
+
 export default class Mention extends Node {
   get name() {
     return "mention";
   }
 
   get schema(): NodeSpec {
-    const toPlainText = (node: ProsemirrorNode) =>
-      node.attrs.type === MentionType.User
-        ? `@${node.attrs.label}`
-        : node.attrs.label;
+    const toPlainText = (node: ProsemirrorNode) => {
+      if (node.attrs.type === MentionType.User) {
+        return `@${node.attrs.label}`;
+      }
+      if (node.attrs.type === MentionType.Date) {
+        return dateMentionLabel(node);
+      }
+      return node.attrs.label;
+    };
 
     return {
       attrs: {
@@ -54,6 +76,9 @@ export default class Mention extends Node {
           default: undefined,
         },
         id: {
+          default: undefined,
+        },
+        anchorId: {
           default: undefined,
         },
         href: {
@@ -85,6 +110,8 @@ export default class Mention extends Node {
               actorId: dom.dataset.actorid,
               label: dom.innerText,
               id: dom.id,
+              anchorId:
+                dom.dataset.anchorId ?? dom.getAttribute("href")?.split("#")[1],
               href: dom.getAttribute("href"),
               unfurl: dom.dataset.unfurl
                 ? JSON.parse(dom.dataset.unfurl)
@@ -94,26 +121,38 @@ export default class Mention extends Node {
         },
       ],
       toDOM: (node) => [
-        node.attrs.type === MentionType.User ? "span" : "a",
+        node.attrs.type === MentionType.User ||
+        node.attrs.type === MentionType.Date
+          ? "span"
+          : "a",
         {
-          class: `${node.type.name} use-hover-preview`,
+          // Date mentions are self-contained and have nothing to unfurl, so
+          // they opt out of the hover preview behaviour.
+          class:
+            node.attrs.type === MentionType.Date
+              ? node.type.name
+              : `${node.type.name} use-hover-preview`,
           id: node.attrs.id,
           href:
-            node.attrs.type === MentionType.User
+            node.attrs.type === MentionType.User ||
+            node.attrs.type === MentionType.Date
               ? undefined
               : node.attrs.type === MentionType.Document
-                ? `${env.URL}/doc/${node.attrs.modelId}`
+                ? `${env.URL}/doc/${node.attrs.modelId}${
+                    node.attrs.anchorId ? `#${node.attrs.anchorId}` : ""
+                  }`
                 : node.attrs.type === MentionType.Collection
                   ? `${env.URL}/collection/${node.attrs.modelId}`
-                  : node.attrs.href,
+                  : sanitizeUrl(node.attrs.href),
           "data-type": node.attrs.type,
           "data-id": node.attrs.modelId,
           "data-actorid": node.attrs.actorId,
+          "data-anchor-id": node.attrs.anchorId,
           "data-url":
             node.attrs.type === MentionType.PullRequest ||
             node.attrs.type === MentionType.Issue ||
             node.attrs.type === MentionType.Project
-              ? node.attrs.href
+              ? sanitizeUrl(node.attrs.href)
               : `mention://${node.attrs.id}/${node.attrs.type}/${node.attrs.modelId}`,
           "data-unfurl": JSON.stringify(node.attrs.unfurl),
         },
@@ -160,6 +199,10 @@ export default class Mention extends Node {
             {...props}
             onChangeUnfurl={this.handleChangeUnfurl(props)}
           />
+        );
+      case MentionType.Date:
+        return (
+          <MentionDate {...props} onChangeDate={this.handleChangeDate(props)} />
         );
       default:
         return null;
@@ -237,7 +280,11 @@ export default class Mention extends Node {
                 ? "doc"
                 : "collection";
 
-            link = `/${linkType}/${modelId}`;
+            link = `/${linkType}/${modelId}${
+              selection.node.attrs.anchorId
+                ? `#${selection.node.attrs.anchorId}`
+                : ""
+            }`;
           }
 
           this.editor.props.onClickLink?.(link);
@@ -314,12 +361,19 @@ export default class Mention extends Node {
   toMarkdown(state: MarkdownSerializerState, node: ProsemirrorNode) {
     const mType = node.attrs.type;
     const mId = node.attrs.modelId;
-    const label = node.attrs.label;
+    // Date mentions store a machine-readable value, so the label is derived to
+    // keep the serialized output legible outside of the editor.
+    const label =
+      mType === MentionType.Date ? dateMentionLabel(node) : node.attrs.label;
     const id = node.attrs.id;
 
     // Use regular links for document and collection mentions
     if (mType === MentionType.Document) {
-      state.write(`[${label}](/doc/${mId})`);
+      state.write(
+        `[${label}](/doc/${mId}${
+          node.attrs.anchorId ? `#${node.attrs.anchorId}` : ""
+        })`
+      );
     } else if (mType === MentionType.Collection) {
       state.write(`[${label}](/collection/${mId})`);
     } else {
@@ -339,6 +393,25 @@ export default class Mention extends Node {
       }),
     };
   }
+
+  handleChangeDate =
+    ({ node, getPos }: { node: ProsemirrorNode; getPos: () => number }) =>
+    (modelId: string) => {
+      const { view } = this.editor;
+      const { tr } = view.state;
+      const pos = getPos();
+
+      if (node.attrs.modelId === modelId) {
+        return;
+      }
+
+      const transaction = tr.setNodeMarkup(pos, undefined, {
+        ...node.attrs,
+        modelId,
+        label: modelId,
+      });
+      view.dispatch(transaction);
+    };
 
   handleChangeUnfurl =
     ({ node, getPos }: { node: ProsemirrorNode; getPos: () => number }) =>

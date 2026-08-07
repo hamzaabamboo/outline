@@ -1,18 +1,27 @@
 import { z } from "zod";
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { Collection, Document, User } from "@server/models";
-import { authorize, can } from "@server/policies";
 import {
-  presentCollection,
-  presentDocument,
-  presentUser,
-} from "@server/presenters";
+  Attachment,
+  Collection,
+  Document,
+  Template,
+  User,
+} from "@server/models";
+import { authorize, can } from "@server/policies";
+import { AuthorizationError } from "@server/errors";
+import { presentNavigationNode, presentUser } from "@server/presenters";
 import AuthenticationHelper from "@shared/helpers/AuthenticationHelper";
+import { presentCollection } from "./collections";
+import { presentDocument } from "./documents";
+import { presentTemplate } from "./templates";
 import {
   error,
   success,
   getActorFromContext,
+  getDocumentBreadcrumb,
+  getPublicShareUrlForCollection,
+  getPublicShareUrlForDocument,
   pathToUrl,
   withTracing,
 } from "./util";
@@ -30,8 +39,12 @@ const SELF_TOKENS = new Set(["self", "me", "current_user"]);
 function extractId(value: string): string {
   if (/^https?:\/\//.test(value)) {
     try {
-      const pathname = new URL(value).pathname;
-      const segments = pathname.split("/").filter(Boolean);
+      const url = new URL(value);
+      const queryId = url.searchParams.get("id");
+      if (queryId) {
+        return queryId;
+      }
+      const segments = url.pathname.split("/").filter(Boolean);
       return segments[segments.length - 1] ?? value;
     } catch {
       return value;
@@ -57,8 +70,22 @@ export function fetchTool(server: McpServer, scopes: string[]) {
     scopes
   );
   const canReadUsers = AuthenticationHelper.canAccess("users.info", scopes);
+  const canReadAttachments = AuthenticationHelper.canAccess(
+    "attachments.info",
+    scopes
+  );
+  const canReadTemplates = AuthenticationHelper.canAccess(
+    "templates.info",
+    scopes
+  );
 
-  if (!canReadDocuments && !canReadCollections && !canReadUsers) {
+  if (
+    !canReadDocuments &&
+    !canReadCollections &&
+    !canReadUsers &&
+    !canReadAttachments &&
+    !canReadTemplates
+  ) {
     return;
   }
 
@@ -66,6 +93,8 @@ export function fetchTool(server: McpServer, scopes: string[]) {
     ...(canReadDocuments ? ["document"] : []),
     ...(canReadCollections ? ["collection"] : []),
     ...(canReadUsers ? ["user"] : []),
+    ...(canReadAttachments ? ["attachment"] : []),
+    ...(canReadTemplates ? ["template"] : []),
   ] as [string, ...string[]];
 
   server.registerTool(
@@ -73,7 +102,7 @@ export function fetchTool(server: McpServer, scopes: string[]) {
     {
       title: "Fetch",
       description:
-        'Fetches a document, collection, or user by type and ID. For users, "current_user" can be used as the ID to get the authenticated user.',
+        'Fetches a document, collection, user, attachment, or template by type and ID. When fetching a collection the response includes the full hierarchical document tree. For users, "current_user" can be used as the ID to get the authenticated user. For attachments, the response includes a short-lived signed URL that can be used to download the file contents directly. For templates, the response includes the template body as markdown.',
       annotations: {
         idempotentHint: true,
         readOnlyHint: true,
@@ -101,24 +130,30 @@ export function fetchTool(server: McpServer, scopes: string[]) {
 
             authorize(actor, "read", document);
 
-            const { text, ...attributes } = await presentDocument(
-              undefined,
-              document,
-              {
-                includeData: false,
-                includeText: true,
-                includeUpdatedAt: true,
-              }
-            );
+            const [{ text, ...attributes }, breadcrumb, shareUrl] =
+              await Promise.all([
+                presentDocument(document, {
+                  includeData: false,
+                  includeText: true,
+                  includeUpdatedAt: true,
+                  includeCommentCount: true,
+                }),
+                getDocumentBreadcrumb(document, actor),
+                getPublicShareUrlForDocument(actor.team, document.id),
+              ]);
             return {
               content: [
                 {
                   type: "text" as const,
-                  text: JSON.stringify(pathToUrl(actor.team, attributes)),
+                  text: JSON.stringify({
+                    document: pathToUrl(actor.team, attributes),
+                    ...(breadcrumb !== undefined && { breadcrumb }),
+                    ...(shareUrl !== undefined && { shareUrl }),
+                  }),
                 },
                 {
                   type: "text" as const,
-                  text: String(text ?? ""),
+                  text: typeof text === "string" ? text : "",
                 },
               ],
             } satisfies CallToolResult;
@@ -126,16 +161,25 @@ export function fetchTool(server: McpServer, scopes: string[]) {
 
           case "collection": {
             const collection = await Collection.findByPk(id, {
+              userId: actor.id,
               includeDocumentStructure: true,
               rejectOnEmpty: true,
             });
 
             authorize(actor, "read", collection);
 
-            const presented = await presentCollection(undefined, collection);
+            const [presented, shareUrl] = await Promise.all([
+              presentCollection(collection),
+              getPublicShareUrlForCollection(actor.team, collection.id),
+            ]);
             return success([
-              pathToUrl(actor.team, presented),
-              collection.documentStructure ?? [],
+              {
+                ...pathToUrl(actor.team, presented),
+                ...(shareUrl !== undefined && { shareUrl }),
+              },
+              (collection.documentStructure ?? []).map((node) =>
+                presentNavigationNode(actor.team, node)
+              ),
             ]);
           }
 
@@ -152,6 +196,50 @@ export function fetchTool(server: McpServer, scopes: string[]) {
                 includeDetails: !!can(actor, "readDetails", user),
               })
             );
+          }
+
+          case "attachment": {
+            const attachment = await Attachment.findByPk(id, {
+              rejectOnEmpty: true,
+            });
+
+            // Private attachments are accessible to any member of the workspace they
+            // belong to. This is intentional and not a permission bypass – attachments
+            // are owned by the workspace (team), not by individual documents or users.
+            if (attachment.teamId !== actor?.teamId) {
+              throw AuthorizationError();
+            }
+
+            return success({
+              id: attachment.id,
+              name: attachment.name,
+              contentType: attachment.contentType,
+              size: attachment.size,
+              signedUrl: await attachment.signedUrl,
+            });
+          }
+
+          case "template": {
+            const template = await Template.findByPk(id, {
+              userId: actor.id,
+              rejectOnEmpty: true,
+            });
+
+            authorize(actor, "read", template);
+
+            const { text, ...attributes } = await presentTemplate(template);
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify(pathToUrl(actor.team, attributes)),
+                },
+                {
+                  type: "text" as const,
+                  text,
+                },
+              ],
+            } satisfies CallToolResult;
           }
 
           default:

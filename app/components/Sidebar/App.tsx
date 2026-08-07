@@ -1,18 +1,23 @@
 import { observer } from "mobx-react";
 import { SearchIcon, HomeIcon, SidebarIcon } from "outline-icons";
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
+import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  DragActiveProvider,
+  SidebarScrollProvider,
+} from "./components/DragActiveContext";
 import { useTranslation } from "react-i18next";
+import { useHistory } from "react-router-dom";
 import styled from "styled-components";
 import { metaDisplay } from "@shared/utils/keyboard";
 import Scrollable from "~/components/Scrollable";
+import { navigateToImport } from "~/actions/definitions/navigation";
 import { inviteUser } from "~/actions/definitions/users";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import usePolicy from "~/hooks/usePolicy";
 import useStores from "~/hooks/useStores";
 import TeamMenu from "~/menus/TeamMenu";
+import * as Scenes from "~/routes/scenes";
 import { homePath, searchPath } from "~/utils/routeHelpers";
 import TeamLogo from "../TeamLogo";
 import Tooltip from "../Tooltip";
@@ -21,15 +26,16 @@ import ArchiveLink from "./components/ArchiveLink";
 import Collections from "./components/Collections";
 import { DraftsLink } from "./components/DraftsLink";
 import DragPlaceholder from "./components/DragPlaceholder";
+import { DismissableSidebarAction } from "./components/DismissableSidebarAction";
 import HistoryNavigation from "./components/HistoryNavigation";
 import Section from "./components/Section";
 import SharedWithMe from "./components/SharedWithMe";
-import SidebarAction from "./components/SidebarAction";
 import SidebarButton from "./components/SidebarButton";
 import SidebarLink from "./components/SidebarLink";
 import Starred from "./components/Starred";
 import ToggleButton from "./components/ToggleButton";
 import TrashLink from "./components/TrashLink";
+import useMobile from "~/hooks/useMobile";
 
 function AppSidebar() {
   const { t } = useTranslation();
@@ -37,6 +43,16 @@ function AppSidebar() {
   const team = useCurrentTeam();
   const user = useCurrentUser();
   const can = usePolicy(team);
+  const history = useHistory();
+  const isMobile = useMobile();
+
+  const handleSearchClick = useCallback(() => {
+    const basePath = searchPath();
+    const { pathname, search } = history.location;
+    if (pathname.startsWith(basePath) && (search || pathname !== basePath)) {
+      history.push(basePath);
+    }
+  }, [history]);
 
   useEffect(() => {
     void collections.fetchAll();
@@ -46,34 +62,27 @@ function AppSidebar() {
     }
   }, [documents, collections, user.isViewer]);
 
-  const [dndArea, setDndArea] = useState();
-  const handleSidebarRef = useCallback((node) => setDndArea(node), []);
-  const html5Options = useMemo(
-    () => ({
-      rootElement: dndArea,
-    }),
-    [dndArea]
-  );
+  // Scrollable reads ref.current internally for its shadow/ResizeObserver
+  // logic, so we must pass an object ref — a callback ref would leave those
+  // reads undefined. We mirror the attached node into state so the
+  // SidebarScrollProvider can re-render descendants with the scroll element.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollArea, setScrollArea] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setScrollArea(scrollRef.current);
+  }, []);
 
   return (
-    <Sidebar hidden={!ui.readyToShow} ref={handleSidebarRef}>
-      <HistoryNavigation />
-      {dndArea && (
-        <DndProvider backend={HTML5Backend} options={html5Options}>
-          <DragPlaceholder />
+    <Sidebar hidden={!ui.readyToShow}>
+      <DragActiveProvider>
+        <DragPlaceholder />
 
-          <TeamMenu>
-            <SidebarButton
-              title={team.name}
-              image={
-                <TeamLogo
-                  model={team}
-                  size={24}
-                  alt={t("Logo")}
-                  style={{ marginLeft: 4 }}
-                />
-              }
-            >
+        <TeamMenu>
+          <SidebarButton
+            title={team.name}
+            image={<TeamLogo model={team} size={24} alt={t("Logo")} />}
+          >
+            {isMobile ? null : (
               <Tooltip
                 content={t("Toggle sidebar")}
                 shortcut={`${metaDisplay}+.`}
@@ -86,32 +95,38 @@ function AppSidebar() {
                       ? t("Expand sidebar")
                       : t("Collapse sidebar")
                   }
+                  style={{ paddingInline: 4 }}
                   onClick={() => {
                     ui.toggleCollapsedSidebar();
                     (document.activeElement as HTMLElement)?.blur();
                   }}
                 />
               </Tooltip>
-            </SidebarButton>
-          </TeamMenu>
-          <Overflow>
-            <Section>
-              <SidebarLink
-                to={homePath()}
-                icon={<HomeIcon />}
-                exact={false}
-                label={t("Home")}
-              />
-              <SidebarLink
-                to={searchPath()}
-                icon={<SearchIcon />}
-                label={t("Search")}
-                exact={false}
-              />
-              {can.createDocument && <DraftsLink />}
-            </Section>
-          </Overflow>
-          <Scrollable flex shadow>
+            )}
+          </SidebarButton>
+        </TeamMenu>
+        <Overflow>
+          <Section>
+            <SidebarLink
+              to={homePath()}
+              icon={<HomeIcon />}
+              exact={false}
+              label={t("Home")}
+              onClickIntent={Scenes.Home.preload}
+            />
+            <SidebarLink
+              to={searchPath()}
+              icon={<SearchIcon />}
+              label={t("Search")}
+              exact={false}
+              onClick={handleSearchClick}
+              onClickIntent={Scenes.Search.preload}
+            />
+            {can.createDocument && <DraftsLink />}
+          </Section>
+        </Overflow>
+        <Scrollable flex shadow ref={scrollRef}>
+          <SidebarScrollProvider value={scrollArea}>
             <Section>
               <Starred />
             </Section>
@@ -128,11 +143,19 @@ function AppSidebar() {
             )}
             <Section>
               {can.createDocument && <TrashLink />}
-              <SidebarAction action={inviteUser} />
+              <DismissableSidebarAction
+                id="sidebar-import-hidden"
+                action={navigateToImport}
+              />
+              <DismissableSidebarAction
+                id="sidebar-invite-hidden"
+                action={inviteUser}
+              />
             </Section>
-          </Scrollable>
-        </DndProvider>
-      )}
+          </SidebarScrollProvider>
+        </Scrollable>
+      </DragActiveProvider>
+      <HistoryNavigation />
     </Sidebar>
   );
 }

@@ -1,6 +1,6 @@
 import { observer } from "mobx-react";
 import * as React from "react";
-import { colorPalette } from "@shared/utils/collections";
+import { colorPalette } from "@shared/constants";
 import type Document from "~/models/Document";
 import type Revision from "~/models/Revision";
 import type { Props as EditorProps } from "~/components/Editor";
@@ -11,9 +11,12 @@ import DocumentTitle from "./DocumentTitle";
 import Editor from "~/components/Editor";
 import { richExtensions, withComments } from "@shared/editor/nodes";
 import Diff from "@shared/editor/extensions/Diff";
+import { RevisionHelper } from "@shared/utils/RevisionHelper";
 import useQuery from "~/hooks/useQuery";
+import useStores from "~/hooks/useStores";
 import { type Editor as TEditor } from "~/editor";
 import { ChangesetHelper } from "@shared/editor/lib/ChangesetHelper";
+import CodeWordBreak from "@shared/editor/extensions/CodeWordBreak";
 
 type Props = Omit<EditorProps, "extensions"> & {
   /** The ID of the revision */
@@ -38,8 +41,39 @@ type Props = Omit<EditorProps, "extensions"> & {
  */
 function RevisionViewer(props: Props, ref: React.Ref<TEditor>) {
   const { document, children, revision } = props;
+  const { revisions } = useStores();
   const query = useQuery();
   const showChanges = props.showChanges ?? query.has("changes");
+  const compareToParam = query.get("compareTo");
+
+  const compareToRevisionId = React.useMemo(() => {
+    if (!compareToParam) {
+      return undefined;
+    }
+    return compareToParam === "latest"
+      ? RevisionHelper.latestId(revision.documentId)
+      : compareToParam;
+  }, [compareToParam, revision.documentId]);
+
+  const compareToRevision = compareToRevisionId
+    ? revisions.get(compareToRevisionId)
+    : undefined;
+
+  const comparisonData = compareToRevisionId
+    ? compareToRevision?.data
+    : revision.before?.data;
+
+  // Revisions are listed without their content, so when diffing against the
+  // previous revision ensure its content has been loaded. The directly viewed
+  // and `compareTo` revisions are loaded by the document DataLoader.
+  const beforeRevisionId = compareToRevisionId
+    ? undefined
+    : revision.before?.id;
+  React.useEffect(() => {
+    if (showChanges && beforeRevisionId) {
+      void revisions.fetch(beforeRevisionId);
+    }
+  }, [showChanges, beforeRevisionId, revisions]);
 
   /**
    * Create editor extensions with the Diff extension configured to render
@@ -48,15 +82,27 @@ function RevisionViewer(props: Props, ref: React.Ref<TEditor>) {
   const extensions = React.useMemo(() => {
     const changeset = ChangesetHelper.getChangeset(
       revision.data,
-      revision.before?.data
+      comparisonData
     );
     return [
+      CodeWordBreak,
       ...withComments(richExtensions),
       ...(showChanges && changeset?.changes
         ? [new Diff({ changes: changeset?.changes })]
         : []),
     ];
-  }, [revision.data, showChanges]);
+  }, [revision.data, comparisonData, showChanges]);
+
+  // The editor builds its extensions once, on mount, so it has to be remounted
+  // whenever the diff configuration changes. Revisions are listed without their
+  // content, so the revision being compared against — and with it the Diff
+  // extension — usually only arrives on a later render; without this neither
+  // the highlights nor the change count would ever appear.
+  const editorKey = [
+    showChanges ? "changes" : "no-changes",
+    compareToRevisionId ?? revision.before?.id ?? "none",
+    comparisonData ? "loaded" : "pending",
+  ].join("-");
 
   return (
     <Flex auto column>
@@ -71,9 +117,10 @@ function RevisionViewer(props: Props, ref: React.Ref<TEditor>) {
         document={document}
         revision={revision}
         to={documentPath(document)}
-        rtl={revision.rtl}
+        $rtl={revision.rtl}
       />
       <Editor
+        key={editorKey}
         ref={ref}
         defaultValue={revision.data}
         extensions={extensions}
