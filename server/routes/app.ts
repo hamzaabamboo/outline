@@ -12,6 +12,7 @@ import {
 } from "@shared/types";
 import { unicodeCLDRtoISO639 } from "@shared/utils/date";
 import { attachmentRedirectRegex } from "@shared/utils/ProsemirrorHelper";
+import { Hour } from "@shared/utils/time";
 import env from "@server/env";
 import { allowScriptSrc } from "@server/middlewares/csp";
 import { Attachment, Integration } from "@server/models";
@@ -32,7 +33,7 @@ const OG_IMAGE_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 async function getSignedOgImageUrl(
   imageUrl: string | undefined,
-  teamId: string | undefined,
+  teamId: string | undefined
 ): Promise<string | undefined> {
   if (!imageUrl || !teamId) {
     return imageUrl;
@@ -67,7 +68,7 @@ let indexHtmlCache: Buffer | undefined;
  */
 function formatChildDocumentsAsMarkdown(
   children: NavigationNode[],
-  baseUrl: string,
+  baseUrl: string
 ): string {
   if (!children || children.length === 0) {
     return "";
@@ -94,12 +95,12 @@ const readIndexFile = async (): Promise<Buffer> => {
 
   if (env.isDevelopment) {
     return await readFile(
-      path.join(__dirname, "../../../server/static/index.html"),
+      path.join(__dirname, "../../../server/static/index.html")
     );
   }
 
   return (indexHtmlCache = await readFile(
-    path.join(__dirname, "../../app/index.html"),
+    path.join(__dirname, "../../app/index.html")
   ));
 };
 
@@ -115,9 +116,10 @@ export const renderApp = async (
     ogImage?: string;
     rootShareId?: string;
     isShare?: boolean;
+    markdownUrl?: string;
     analytics?: Integration<IntegrationType.Analytics>[];
     allowIndexing?: boolean;
-  } = {},
+  } = {}
 ) => {
   const {
     title = env.APP_NAME,
@@ -134,7 +136,7 @@ export const renderApp = async (
 
   allowScriptSrc(
     ctx,
-    IntegrationHelper.getAnalyticsScriptSrc(options.analytics),
+    IntegrationHelper.getAnalyticsScriptSrc(options.analytics)
   );
 
   const { shareId } = ctx.params;
@@ -143,7 +145,7 @@ export const renderApp = async (
     <script nonce="${ctx.state.cspNonce}">
       window.env = ${JSON.stringify(presentEnv(env, options)).replace(
         /</g,
-        "\\u003c",
+        "\\u003c"
       )};
     </script>
   `;
@@ -163,9 +165,14 @@ export const renderApp = async (
       <script type="module" nonce="${ctx.state.cspNonce}" src="${viteHost}/static/${entry}"></script>
     `;
 
+  const alternateTag = options.markdownUrl
+    ? `<link rel="alternate" type="text/markdown" href="${escape(options.markdownUrl)}" />`
+    : "";
+
   let headTags = `
     <meta name="robots" content="${allowIndexing ? "index, follow" : "noindex, nofollow"}" />
     <link rel="canonical" href="${escape(canonical)}" />
+    ${alternateTag}
     <link
       rel="shortcut icon"
       type="image/png"
@@ -217,6 +224,15 @@ export const renderApp = async (
     `;
   }
 
+  // Advertise the markdown representation so that clients can discover it from
+  // the response headers alone, without parsing the page.
+  if (options.markdownUrl) {
+    ctx.response.set(
+      "Link",
+      `<${options.markdownUrl}>; rel="alternate"; type="text/markdown"`
+    );
+  }
+
   // Ensure no caching is performed
   ctx.response.set("Cache-Control", "no-cache, must-revalidate");
   ctx.response.set("Expires", "-1");
@@ -240,6 +256,9 @@ export const renderShare = async (ctx: Context, next: Next) => {
   const shareId = rootShareId ?? ctx.params.shareId;
   const collectionSlug = ctx.params.collectionSlug;
   const documentSlug = ctx.params.documentSlug;
+
+  // The response depends on the Accept header, caches must key on it.
+  ctx.vary("Accept");
 
   // Find the share record if published so that the document title can be returned
   // in the server-rendered HTML. This allows it to appear in unfurls more reliably.
@@ -269,7 +288,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
     }
 
     analytics = await Integration.findAnalyticsIntegrationsForTeam(
-      share.teamId,
+      share.teamId
     );
 
     if (share && !ctx.userAgent.isBot) {
@@ -280,13 +299,23 @@ export const renderShare = async (ctx: Context, next: Next) => {
         },
         {
           hooks: false,
-        },
+        }
       );
     }
   } catch (_err) {
     // If the share or document does not exist, return a 404.
     ctx.status = 404;
   }
+
+  // The markdown representation lives at the same path with a .md suffix, only
+  // on the routes that accept a format suffix.
+  const markdownPath = ctx.params.shareId
+    ? `/s/${ctx.params.shareId}${documentSlug ? `/doc/${documentSlug}` : ""}`
+    : undefined;
+  const markdownUrl =
+    markdownPath && markdownPath === ctx.request.path
+      ? `${ctx.request.URL.origin}${markdownPath}.md`
+      : undefined;
 
   // If the client explicitly requests markdown and prefers it over HTML,
   // or the URL path ends with .md, return the document as markdown. This is
@@ -302,23 +331,26 @@ export const renderShare = async (ctx: Context, next: Next) => {
       includeTitle: true,
       signedUrls: 86400, // 24 hours
       teamId: team?.id,
+      commonMark: true,
     });
 
     // Append child documents list if the share includes them
     if (share?.includeChildDocuments && sharedTree) {
       const node = document
-        ? collection?.getDocumentTree(document.id) ?? sharedTree
+        ? (collection?.getDocumentTree(document.id) ?? sharedTree)
         : sharedTree;
 
       if (node?.children?.length) {
         markdown += formatChildDocumentsAsMarkdown(
           node.children,
-          share.canonicalUrl,
+          share.canonicalUrl
         );
       }
     }
 
     ctx.type = "text/markdown";
+    ctx.response.set("Cache-Control", "no-cache, must-revalidate");
+    ctx.response.set("Expires", "-1");
     ctx.body = markdown;
     return;
   }
@@ -347,7 +379,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
           includeStyles: false,
           includeHead: false,
           includeTitle: true,
-          signedUrls: true,
+          signedUrls: Hour.seconds,
         })
       : undefined;
 
@@ -375,7 +407,7 @@ export const renderShare = async (ctx: Context, next: Next) => {
     content,
     shortcutIcon:
       publicBranding && team?.avatarUrl
-        ? (await team.publicAvatarUrl()) ?? undefined
+        ? ((await team.publicAvatarUrl()) ?? undefined)
         : undefined,
     ogImage,
     analytics,
@@ -383,5 +415,6 @@ export const renderShare = async (ctx: Context, next: Next) => {
     rootShareId,
     canonical: canonicalUrl,
     allowIndexing: share?.allowIndexing,
+    markdownUrl: document || collection ? markdownUrl : undefined,
   });
 };
